@@ -1,0 +1,8 @@
+project/
+├── app.py
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── add_project.html
+│   └── edit_project.html
+└── schema.sql 

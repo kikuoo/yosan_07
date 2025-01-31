@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>物件編集</h1>
+<form method="POST">
+    <div class="mb-3">
+        <label for="project_code" class="form-label">物件コード</label>
+        <input type="text" class="form-control" id="project_code" name="project_code" value="{{ project.project_code }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="project_name" class="form-label">物件名</label>
+        <input type="text" class="form-control" id="project_name" name="project_name" value="{{ project.project_name }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="contract_amount" class="form-label">請負金額</label>
+        <input type="number" class="form-control" id="contract_amount" name="contract_amount" value="{{ project.contract_amount }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="budget_amount" class="form-label">実行予算額</label>
+        <input type="number" class="form-control" id="budget_amount" name="budget_amount" value="{{ project.budget_amount }}" required>
+    </div>
+    <button type="submit" class="btn btn-primary">更新</button>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">キャンセル</a>
+</form>
+{% endblock %} 
