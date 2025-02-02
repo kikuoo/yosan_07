@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>工種編集</h2>
+
+<form method="POST">
+    <div class="form-group">
+        <label for="work_code">工種コード</label>
+        <input type="text" class="form-control" id="work_code" name="work_code" value="{{ work_type.work_code }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="work_name">工種名</label>
+        <input type="text" class="form-control" id="work_name" name="work_name" value="{{ work_type.work_name }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="budget_amount">予算額</label>
+        <input type="number" class="form-control" id="budget_amount" name="budget_amount" value="{{ work_type.budget_amount }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="remaining_amount">残額</label>
+        <input type="number" class="form-control" id="remaining_amount" name="remaining_amount" value="{{ work_type.remaining_amount }}" required>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">更新</button>
+    <a href="{{ url_for('work_type_list', project_id=work_type.project_id) }}" class="btn btn-secondary">戻る</a>
+</form>
+{% endblock %} 
