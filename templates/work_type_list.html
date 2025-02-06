@@ -3,7 +3,7 @@
 {% block content %}
 <h2>{{ project.project_name }} - 工種一覧</h2>
 
-<a href="{{ url_for('add_work_type', project_id=project.id) }}" class="btn btn-primary mb-3">新規工種登録</a>
+<a href="{{ url_for('add_work_type', project_id=project.id) }}" class="btn btn-primary mb-3">工種追加</a>
 
 <table class="table">
     <thead>
@@ -20,13 +20,16 @@
         <tr>
             <td>{{ work_type.work_code }}</td>
             <td>{{ work_type.work_name }}</td>
-            <td>{{ "{:,}".format(work_type.budget_amount|int) }}</td>
-            <td>{{ "{:,}".format(work_type.remaining_amount|int) }}</td>
+            <td>{{ work_type.budget_amount }}</td>
+            <td>{{ work_type.remaining_amount }}</td>
             <td>
-                <a href="{{ url_for('edit_work_type', id=work_type.id) }}" class="btn btn-sm btn-primary">編集</a>
+                <a href="{{ url_for('edit_work_type', id=work_type.id) }}" class="btn btn-primary btn-sm">編集</a>
+                <a href="{{ url_for('payment', work_type_id=work_type.id) }}" class="btn btn-success btn-sm">支払い登録</a>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<a href="{{ url_for('index') }}" class="btn btn-secondary">戻る</a>
 {% endblock %} 

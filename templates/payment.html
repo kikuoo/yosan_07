@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>支払い登録 - {{ work_type.name }}</h2>
+<h2>支払い登録 - {{ work_type.work_name }}</h2>
 
 <form method="post">
     <div class="mb-3">
@@ -50,6 +50,6 @@
     </div>
 
     <button type="submit" class="btn btn-primary">登録</button>
-    <a href="{{ url_for('edit_work_type') }}" class="btn btn-secondary">戻る</a>
+    <a href="{{ url_for('work_type_list', project_id=work_type.project_id) }}" class="btn btn-secondary">戻る</a>
 </form>
 {% endblock %} 
