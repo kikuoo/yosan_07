@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>支払い登録 - {{ work_type.name }}</h2>
+
+<form method="post">
+    <div class="mb-3">
+        <label for="year" class="form-label">年</label>
+        <select class="form-select" id="year" name="year" required>
+            {% for year in range(2020, 2031) %}
+            <option value="{{ year }}">{{ year }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="month" class="form-label">月</label>
+        <select class="form-select" id="month" name="month" required>
+            {% for month in range(1, 13) %}
+            <option value="{{ month }}">{{ month }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for="contractor" class="form-label">業者名</label>
+        <input type="text" class="form-control" id="contractor" name="contractor" required>
+    </div>
+
+    <div class="mb-3">
+        <label for="description" class="form-label">支払い内容</label>
+        <textarea class="form-control" id="description" name="description" required></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">支払い種別</label>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_type" id="contract" value="請負" checked>
+            <label class="form-check-label" for="contract">請負</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_type" id="non_contract" value="請負外">
+            <label class="form-check-label" for="non_contract">請負外</label>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="amount" class="form-label">支払い金額</label>
+        <input type="number" class="form-control" id="amount" name="amount" required>
+    </div>
+
+    <button type="submit" class="btn btn-primary">登録</button>
+    <a href="{{ url_for('edit_work_type') }}" class="btn btn-secondary">戻る</a>
+</form>
+{% endblock %} 

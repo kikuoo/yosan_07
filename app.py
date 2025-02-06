@@ -39,6 +39,20 @@ class WorkType(db.Model):
     
     project = db.relationship('Project', backref=db.backref('work_types', lazy=True))
 
+class Payment(db.Model):
+    __tablename__ = 'payments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    work_type_id = db.Column(db.Integer, db.ForeignKey('work_types.id'), nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    month = db.Column(db.Integer, nullable=False)
+    contractor = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    payment_type = db.Column(db.String(50), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
+    
+    work_type = db.relationship('WorkType', backref=db.backref('payments', lazy=True))
+
 @app.route('/')
 def index():
     projects = Project.query.order_by(Project.created_at.desc()).all()
@@ -116,6 +130,27 @@ def edit_work_type(id):
         return redirect(url_for('work_type_list', project_id=work_type.project_id))
     
     return render_template('edit_work_type.html', work_type=work_type)
+
+@app.route('/payment/<int:work_type_id>', methods=['GET', 'POST'])
+def payment(work_type_id):
+    work_type = WorkType.query.get_or_404(work_type_id)
+    
+    if request.method == 'POST':
+        payment = Payment(
+            work_type_id=work_type_id,
+            year=request.form['year'],
+            month=request.form['month'],
+            contractor=request.form['contractor'],
+            description=request.form['description'],
+            payment_type=request.form['payment_type'],
+            amount=request.form['amount']
+        )
+        db.session.add(payment)
+        db.session.commit()
+        flash('支払い情報を登録しました')
+        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+        
+    return render_template('payment.html', work_type=work_type)
 
 if __name__ == '__main__':
     app.run(debug=True) 

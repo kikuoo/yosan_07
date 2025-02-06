@@ -27,4 +27,27 @@
     <button type="submit" class="btn btn-primary">更新</button>
     <a href="{{ url_for('work_type_list', project_id=work_type.project_id) }}" class="btn btn-secondary">戻る</a>
 </form>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>工種名</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for work_type in work_types %}
+        <tr>
+            <td>{{ work_type.name }}</td>
+            <td>
+                <a href="{{ url_for('edit_work_type_item', id=work_type.id) }}" class="btn btn-primary btn-sm">編集</a>
+                <form action="{{ url_for('delete_work_type', id=work_type.id) }}" method="post" style="display: inline;">
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('本当に削除しますか？')">削除</button>
+                </form>
+                <a href="{{ url_for('payment', work_type_id=work_type.id) }}" class="btn btn-success btn-sm">支払い</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endblock %} 
