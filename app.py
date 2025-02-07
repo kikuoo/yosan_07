@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import datetime, timezone
@@ -151,6 +151,29 @@ def payment(work_type_id):
         return redirect(url_for('work_type_list', project_id=work_type.project_id))
         
     return render_template('payment.html', work_type=work_type)
+
+@app.route('/api/payment_history/<int:work_type_id>')
+def payment_history(work_type_id):
+    payments = db.session.query(Payment).filter_by(work_type_id=work_type_id).all()
+    return jsonify({
+        'payments': [{
+            'id': payment.id,
+            'payment_date': payment.payment_date.strftime('%Y-%m-%d'),
+            'amount': payment.amount,
+            'notes': payment.notes
+        } for payment in payments]
+    })
+
+@app.route('/edit_payment/<int:payment_id>', methods=['GET', 'POST'])
+def edit_payment(payment_id):
+    payment = db.session.query(Payment).get_or_404(payment_id)
+    if request.method == 'POST':
+        payment.payment_date = datetime.strptime(request.form['payment_date'], '%Y-%m-%d')
+        payment.amount = int(request.form['amount'])
+        payment.notes = request.form['notes']
+        db.session.commit()
+        return redirect(url_for('work_type_list', project_id=payment.work_type.project_id))
+    return render_template('edit_payment.html', payment=payment)
 
 if __name__ == '__main__':
     app.run(debug=True) 

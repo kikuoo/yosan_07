@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>支払い情報編集</h2>
+
+<form method="post">
+    <div class="form-group">
+        <label for="payment_date">支払日</label>
+        <input type="date" class="form-control" id="payment_date" name="payment_date" 
+               value="{{ payment.payment_date.strftime('%Y-%m-%d') }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="amount">支払額</label>
+        <input type="number" class="form-control" id="amount" name="amount" 
+               value="{{ payment.amount }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="notes">備考</label>
+        <textarea class="form-control" id="notes" name="notes">{{ payment.notes }}</textarea>
+    </div>
+    
+    <button type="submit" class="btn btn-primary">更新</button>
+    <a href="{{ url_for('work_type_list', project_id=payment.work_type.project_id) }}" 
+       class="btn btn-secondary">キャンセル</a>
+</form>
+{% endblock %} 

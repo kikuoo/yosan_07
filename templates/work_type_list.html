@@ -25,6 +25,27 @@
             <td>
                 <a href="{{ url_for('edit_work_type', id=work_type.id) }}" class="btn btn-primary btn-sm">編集</a>
                 <a href="{{ url_for('payment', work_type_id=work_type.id) }}" class="btn btn-success btn-sm">支払い登録</a>
+                <button class="btn btn-info btn-sm" onclick="togglePaymentHistory({{ work_type.id }})">詳細表示</button>
+            </td>
+        </tr>
+        <tr id="payment-history-{{ work_type.id }}" style="display: none;">
+            <td colspan="5">
+                <div class="payment-history-content">
+                    <h5>支払い履歴</h5>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>支払日</th>
+                                <th>支払額</th>
+                                <th>備考</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="payment-list-{{ work_type.id }}">
+                            <!-- JavaScriptで動的に支払い履歴が表示されます -->
+                        </tbody>
+                    </table>
+                </div>
             </td>
         </tr>
         {% endfor %}
@@ -32,4 +53,31 @@
 </table>
 
 <a href="{{ url_for('index') }}" class="btn btn-secondary">戻る</a>
+
+<script>
+function togglePaymentHistory(workTypeId) {
+    const historyRow = document.getElementById(`payment-history-${workTypeId}`);
+    if (historyRow.style.display === 'none') {
+        // 支払い履歴を取得して表示
+        fetch(`/api/payment_history/${workTypeId}`)
+            .then(response => response.json())
+            .then(data => {
+                const paymentList = document.querySelector(`.payment-list-${workTypeId}`);
+                paymentList.innerHTML = data.payments.map(payment => `
+                    <tr>
+                        <td>${payment.payment_date}</td>
+                        <td>${payment.amount}</td>
+                        <td>${payment.notes || ''}</td>
+                        <td>
+                            <a href="/edit_payment/${payment.id}" class="btn btn-primary btn-sm">編集</a>
+                        </td>
+                    </tr>
+                `).join('');
+                historyRow.style.display = 'table-row';
+            });
+    } else {
+        historyRow.style.display = 'none';
+    }
+}
+</script>
 {% endblock %} 
