@@ -39,6 +39,7 @@
                                 <th>業者名</th>
                                 <th>支払額</th>
                                 <th>内容</th>
+                                <th>支払種別</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -65,25 +66,43 @@ function togglePaymentHistory(workTypeId) {
             .then(data => {
                 const paymentList = document.querySelector(`.payment-list-${workTypeId}`);
                 if (data.payments.length === 0) {
-                    paymentList.innerHTML = '<tr><td colspan="5">支払い履歴がありません</td></tr>';
+                    paymentList.innerHTML = '<tr><td colspan="6">支払い履歴がありません</td></tr>';
                 } else {
-                    paymentList.innerHTML = data.payments.map(payment => `
-                        <tr>
-                            <td>${payment.payment_date}</td>
-                            <td>${payment.contractor}</td>
-                            <td>${payment.amount}</td>
-                            <td>${payment.description || ''}</td>
-                            <td>
-                                <a href="/edit_payment/${payment.id}" class="btn btn-primary btn-sm">編集</a>
-                            </td>
-                        </tr>
-                    `).join('');
+                    // 請負と請負外で分類
+                    const contractPayments = data.payments.filter(p => p.payment_type === '請負');
+                    const nonContractPayments = data.payments.filter(p => p.payment_type === '請負外');
+                    
+                    // 請負の支払い履歴を表示
+                    const contractRows = contractPayments.map(payment => createPaymentRow(payment));
+                    
+                    // 請負外の支払い履歴を表示（区切り行を追加）
+                    const nonContractRows = nonContractPayments.length > 0 
+                        ? [`<tr><td colspan="6" class="table-secondary">請負外支払い</td></tr>`]
+                            .concat(nonContractPayments.map(payment => createPaymentRow(payment)))
+                        : [];
+                    
+                    paymentList.innerHTML = contractRows.concat(nonContractRows).join('');
                 }
                 historyRow.style.display = 'table-row';
             });
     } else {
         historyRow.style.display = 'none';
     }
+}
+
+function createPaymentRow(payment) {
+    return `
+        <tr>
+            <td>${payment.payment_date}</td>
+            <td>${payment.contractor}</td>
+            <td>${payment.amount}</td>
+            <td>${payment.description || ''}</td>
+            <td>${payment.payment_type}</td>
+            <td>
+                <a href="/edit_payment/${payment.id}" class="btn btn-primary btn-sm">編集</a>
+            </td>
+        </tr>
+    `;
 }
 </script>
 {% endblock %} 

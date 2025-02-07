@@ -154,14 +154,17 @@ def payment(work_type_id):
 
 @app.route('/api/payment_history/<int:work_type_id>')
 def payment_history(work_type_id):
-    payments = Payment.query.filter_by(work_type_id=work_type_id).all()
+    payments = Payment.query.filter_by(work_type_id=work_type_id)\
+        .order_by(Payment.year.desc(), Payment.month.desc())\
+        .all()
     return jsonify({
         'payments': [{
             'id': payment.id,
             'payment_date': f"{payment.year}年{payment.month}月",
             'contractor': payment.contractor,
             'amount': f"¥{payment.amount:,}",
-            'description': payment.description
+            'description': payment.description,
+            'payment_type': payment.payment_type
         } for payment in payments]
     })
 
