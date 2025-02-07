@@ -24,6 +24,9 @@ class Project(db.Model):
     budget_amount = db.Column(db.Numeric(12, 0), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    
+    # 関連する工種が削除されるように設定
+    work_types = db.relationship('WorkType', backref='project', lazy=True, cascade='all, delete-orphan')
 
 class WorkType(db.Model):
     __tablename__ = 'work_types'
@@ -37,7 +40,8 @@ class WorkType(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
-    project = db.relationship('Project', backref=db.backref('work_types', lazy=True))
+    # 関連する支払い情報が削除されるように設定
+    payments = db.relationship('Payment', backref='work_type', lazy=True, cascade='all, delete-orphan')
 
 class Payment(db.Model):
     __tablename__ = 'payments'
@@ -50,8 +54,6 @@ class Payment(db.Model):
     description = db.Column(db.Text, nullable=False)
     payment_type = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
-    
-    work_type = db.relationship('WorkType', backref=db.backref('payments', lazy=True))
 
 @app.route('/')
 def index():
