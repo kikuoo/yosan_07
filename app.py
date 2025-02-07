@@ -44,12 +44,14 @@ class Payment(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     work_type_id = db.Column(db.Integer, db.ForeignKey('work_types.id'), nullable=False)
+    payment_date = db.Column(db.Date, nullable=False)
     year = db.Column(db.Integer, nullable=False)
     month = db.Column(db.Integer, nullable=False)
     contractor = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
     payment_type = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text)
     
     work_type = db.relationship('WorkType', backref=db.backref('payments', lazy=True))
 
@@ -138,12 +140,14 @@ def payment(work_type_id):
     if request.method == 'POST':
         payment = Payment(
             work_type_id=work_type_id,
+            payment_date=datetime.strptime(request.form['payment_date'], '%Y-%m-%d').date(),
             year=request.form['year'],
             month=request.form['month'],
             contractor=request.form['contractor'],
             description=request.form['description'],
             payment_type=request.form['payment_type'],
-            amount=request.form['amount']
+            amount=request.form['amount'],
+            notes=request.form.get('notes', '')
         )
         db.session.add(payment)
         db.session.commit()
@@ -154,13 +158,13 @@ def payment(work_type_id):
 
 @app.route('/api/payment_history/<int:work_type_id>')
 def payment_history(work_type_id):
-    payments = db.session.query(Payment).filter_by(work_type_id=work_type_id).all()
+    payments = Payment.query.filter_by(work_type_id=work_type_id).all()
     return jsonify({
         'payments': [{
             'id': payment.id,
-            'payment_date': payment.payment_date.strftime('%Y-%m-%d'),
-            'amount': payment.amount,
-            'notes': payment.notes
+            'payment_date': f"{payment.year}年{payment.month}月",
+            'amount': f"¥{payment.amount:,}",
+            'notes': payment.description
         } for payment in payments]
     })
 

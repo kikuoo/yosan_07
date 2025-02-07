@@ -63,17 +63,25 @@ function togglePaymentHistory(workTypeId) {
             .then(response => response.json())
             .then(data => {
                 const paymentList = document.querySelector(`.payment-list-${workTypeId}`);
-                paymentList.innerHTML = data.payments.map(payment => `
-                    <tr>
-                        <td>${payment.payment_date}</td>
-                        <td>${payment.amount}</td>
-                        <td>${payment.notes || ''}</td>
-                        <td>
-                            <a href="/edit_payment/${payment.id}" class="btn btn-primary btn-sm">編集</a>
-                        </td>
-                    </tr>
-                `).join('');
+                if (data.payments.length === 0) {
+                    paymentList.innerHTML = '<tr><td colspan="4">支払い履歴がありません</td></tr>';
+                } else {
+                    paymentList.innerHTML = data.payments.map(payment => `
+                        <tr>
+                            <td>${payment.payment_date}</td>
+                            <td>${payment.amount}</td>
+                            <td>${payment.notes || ''}</td>
+                            <td>
+                                <a href="/edit_payment/${payment.id}" class="btn btn-primary btn-sm">編集</a>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
                 historyRow.style.display = 'table-row';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('支払い履歴の取得に失敗しました');
             });
     } else {
         historyRow.style.display = 'none';
