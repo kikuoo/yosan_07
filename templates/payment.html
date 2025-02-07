@@ -4,44 +4,51 @@
 <h2>支払い登録 - {{ work_type.work_name }}</h2>
 
 <form method="post">
-    <div class="form-group">
-        <label for="payment_date">支払日</label>
-        <input type="date" class="form-control" id="payment_date" name="payment_date" required>
+    <div class="mb-3">
+        <label for="month" class="form-label">支払年月</label>
+        <div class="row">
+            <div class="col">
+                <select class="form-select" id="year" name="year" required>
+                    {% for year in range(2020, 2031) %}
+                    <option value="{{ year }}">{{ year }}年</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col">
+                <select class="form-select" id="month" name="month" required>
+                    {% for month in range(1, 13) %}
+                    <option value="{{ month }}">{{ month }}月</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label for="year">年</label>
-        <input type="number" class="form-control" id="year" name="year" required>
-    </div>
-
-    <div class="form-group">
-        <label for="month">月</label>
-        <input type="number" class="form-control" id="month" name="month" min="1" max="12" required>
-    </div>
-
-    <div class="form-group">
-        <label for="contractor">業者名</label>
+    <div class="mb-3">
+        <label for="contractor" class="form-label">業者名</label>
         <input type="text" class="form-control" id="contractor" name="contractor" required>
     </div>
 
-    <div class="form-group">
-        <label for="description">内容</label>
+    <div class="mb-3">
+        <label for="description" class="form-label">支払い内容</label>
         <textarea class="form-control" id="description" name="description" required></textarea>
     </div>
 
-    <div class="form-group">
-        <label for="payment_type">支払種別</label>
-        <input type="text" class="form-control" id="payment_type" name="payment_type" required>
+    <div class="mb-3">
+        <label class="form-label">支払い種別</label>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_type" id="contract" value="請負" checked>
+            <label class="form-check-label" for="contract">請負</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_type" id="non_contract" value="請負外">
+            <label class="form-check-label" for="non_contract">請負外</label>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label for="amount">支払額</label>
+    <div class="mb-3">
+        <label for="amount" class="form-label">支払い金額</label>
         <input type="number" class="form-control" id="amount" name="amount" required>
-    </div>
-
-    <div class="form-group">
-        <label for="notes">備考</label>
-        <textarea class="form-control" id="notes" name="notes"></textarea>
     </div>
 
     <button type="submit" class="btn btn-primary">登録</button>

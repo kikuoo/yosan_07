@@ -44,7 +44,6 @@ class Payment(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     work_type_id = db.Column(db.Integer, db.ForeignKey('work_types.id'), nullable=False)
-    payment_date = db.Column(db.Date, nullable=True)  # 既存のデータのためにnullable=True
     year = db.Column(db.Integer, nullable=False)
     month = db.Column(db.Integer, nullable=False)
     contractor = db.Column(db.String(200), nullable=False)
