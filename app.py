@@ -182,5 +182,31 @@ def edit_payment(payment_id):
         return redirect(url_for('work_type_list', project_id=payment.work_type.project_id))
     return render_template('edit_payment.html', payment=payment)
 
+@app.route('/delete_project/<int:id>', methods=['POST'])
+def delete_project(id):
+    project = Project.query.get_or_404(id)
+    db.session.delete(project)
+    db.session.commit()
+    flash('物件が削除されました')
+    return redirect(url_for('index'))
+
+@app.route('/delete_work_type/<int:id>', methods=['POST'])
+def delete_work_type(id):
+    work_type = WorkType.query.get_or_404(id)
+    project_id = work_type.project_id
+    db.session.delete(work_type)
+    db.session.commit()
+    flash('工種が削除されました')
+    return redirect(url_for('work_type_list', project_id=project_id))
+
+@app.route('/delete_payment/<int:id>', methods=['POST'])
+def delete_payment(id):
+    payment = Payment.query.get_or_404(id)
+    project_id = payment.work_type.project_id
+    db.session.delete(payment)
+    db.session.commit()
+    flash('支払い情報が削除されました')
+    return redirect(url_for('work_type_list', project_id=project_id))
+
 if __name__ == '__main__':
     app.run(debug=True) 
