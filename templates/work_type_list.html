@@ -35,9 +35,10 @@
                     <table class="table table-sm">
                         <thead>
                             <tr>
-                                <th>支払日</th>
+                                <th>支払年月</th>
+                                <th>業者名</th>
                                 <th>支払額</th>
-                                <th>備考</th>
+                                <th>内容</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -64,13 +65,14 @@ function togglePaymentHistory(workTypeId) {
             .then(data => {
                 const paymentList = document.querySelector(`.payment-list-${workTypeId}`);
                 if (data.payments.length === 0) {
-                    paymentList.innerHTML = '<tr><td colspan="4">支払い履歴がありません</td></tr>';
+                    paymentList.innerHTML = '<tr><td colspan="5">支払い履歴がありません</td></tr>';
                 } else {
                     paymentList.innerHTML = data.payments.map(payment => `
                         <tr>
                             <td>${payment.payment_date}</td>
+                            <td>${payment.contractor}</td>
                             <td>${payment.amount}</td>
-                            <td>${payment.notes || ''}</td>
+                            <td>${payment.description || ''}</td>
                             <td>
                                 <a href="/edit_payment/${payment.id}" class="btn btn-primary btn-sm">編集</a>
                             </td>
@@ -78,10 +80,6 @@ function togglePaymentHistory(workTypeId) {
                     `).join('');
                 }
                 historyRow.style.display = 'table-row';
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('支払い履歴の取得に失敗しました');
             });
     } else {
         historyRow.style.display = 'none';

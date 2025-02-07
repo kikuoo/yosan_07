@@ -4,23 +4,57 @@
 <h2>支払い情報編集</h2>
 
 <form method="post">
-    <div class="form-group">
-        <label for="payment_date">支払日</label>
-        <input type="date" class="form-control" id="payment_date" name="payment_date" 
-               value="{{ payment.payment_date.strftime('%Y-%m-%d') }}" required>
+    <div class="mb-3">
+        <label for="month" class="form-label">支払年月</label>
+        <div class="row">
+            <div class="col">
+                <select class="form-select" id="year" name="year" required>
+                    {% for year in range(2020, 2031) %}
+                    <option value="{{ year }}" {% if year == payment.year %}selected{% endif %}>{{ year }}年</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col">
+                <select class="form-select" id="month" name="month" required>
+                    {% for month in range(1, 13) %}
+                    <option value="{{ month }}" {% if month == payment.month %}selected{% endif %}>{{ month }}月</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
     </div>
-    
-    <div class="form-group">
-        <label for="amount">支払額</label>
+
+    <div class="mb-3">
+        <label for="contractor" class="form-label">業者名</label>
+        <input type="text" class="form-control" id="contractor" name="contractor" 
+               value="{{ payment.contractor }}" required>
+    </div>
+
+    <div class="mb-3">
+        <label for="description" class="form-label">支払い内容</label>
+        <textarea class="form-control" id="description" name="description" required>{{ payment.description }}</textarea>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">支払い種別</label>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_type" id="contract" 
+                   value="請負" {% if payment.payment_type == '請負' %}checked{% endif %}>
+            <label class="form-check-label" for="contract">請負</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_type" id="non_contract" 
+                   value="請負外" {% if payment.payment_type == '請負外' %}checked{% endif %}>
+            <label class="form-check-label" for="non_contract">請負外</label>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="amount" class="form-label">支払い金額</label>
         <input type="number" class="form-control" id="amount" name="amount" 
                value="{{ payment.amount }}" required>
     </div>
-    
-    <div class="form-group">
-        <label for="notes">備考</label>
-        <textarea class="form-control" id="notes" name="notes">{{ payment.notes }}</textarea>
-    </div>
-    
+
     <button type="submit" class="btn btn-primary">更新</button>
     <a href="{{ url_for('work_type_list', project_id=payment.work_type.project_id) }}" 
        class="btn btn-secondary">キャンセル</a>

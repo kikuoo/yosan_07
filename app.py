@@ -159,19 +159,22 @@ def payment_history(work_type_id):
         'payments': [{
             'id': payment.id,
             'payment_date': f"{payment.year}年{payment.month}月",
+            'contractor': payment.contractor,
             'amount': f"¥{payment.amount:,}",
-            'notes': payment.description
+            'description': payment.description
         } for payment in payments]
     })
 
 @app.route('/edit_payment/<int:payment_id>', methods=['GET', 'POST'])
 def edit_payment(payment_id):
-    payment = db.session.query(Payment).get_or_404(payment_id)
+    payment = Payment.query.get_or_404(payment_id)
     if request.method == 'POST':
         payment.year = int(request.form['year'])
         payment.month = int(request.form['month'])
+        payment.contractor = request.form['contractor']
+        payment.description = request.form['description']
+        payment.payment_type = request.form['payment_type']
         payment.amount = int(request.form['amount'])
-        payment.notes = request.form['notes']
         db.session.commit()
         return redirect(url_for('work_type_list', project_id=payment.work_type.project_id))
     return render_template('edit_payment.html', payment=payment)
