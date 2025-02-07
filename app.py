@@ -44,14 +44,13 @@ class Payment(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     work_type_id = db.Column(db.Integer, db.ForeignKey('work_types.id'), nullable=False)
-    payment_date = db.Column(db.Date, nullable=False)
+    payment_date = db.Column(db.Date, nullable=True)  # 既存のデータのためにnullable=True
     year = db.Column(db.Integer, nullable=False)
     month = db.Column(db.Integer, nullable=False)
     contractor = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
     payment_type = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
-    notes = db.Column(db.Text)
     
     work_type = db.relationship('WorkType', backref=db.backref('payments', lazy=True))
 
@@ -140,14 +139,12 @@ def payment(work_type_id):
     if request.method == 'POST':
         payment = Payment(
             work_type_id=work_type_id,
-            payment_date=datetime.strptime(request.form['payment_date'], '%Y-%m-%d').date(),
             year=request.form['year'],
             month=request.form['month'],
             contractor=request.form['contractor'],
             description=request.form['description'],
             payment_type=request.form['payment_type'],
-            amount=request.form['amount'],
-            notes=request.form.get('notes', '')
+            amount=request.form['amount']
         )
         db.session.add(payment)
         db.session.commit()
@@ -172,7 +169,8 @@ def payment_history(work_type_id):
 def edit_payment(payment_id):
     payment = db.session.query(Payment).get_or_404(payment_id)
     if request.method == 'POST':
-        payment.payment_date = datetime.strptime(request.form['payment_date'], '%Y-%m-%d')
+        payment.year = int(request.form['year'])
+        payment.month = int(request.form['month'])
         payment.amount = int(request.form['amount'])
         payment.notes = request.form['notes']
         db.session.commit()
