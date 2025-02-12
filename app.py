@@ -90,11 +90,11 @@ def index():
 @app.route('/add', methods=['GET', 'POST'])
 def add_project():
     if request.method == 'POST':
-        project = project(
-            project_code=request.form['project_code'],#プロジェクトコード
-            project_name=request.form['project_name'],#プロジェクト名
-            contract_amount=request.form['contract_amount'],#契約金額
-            budget_amount=request.form['budget_amount']#予算金額
+        project = Project(
+            project_code=request.form['project_code'],
+            project_name=request.form['project_name'],
+            contract_amount=int(request.form['contract_amount']),
+            budget_amount=int(request.form['budget_amount'])
         )
         db.session.add(project)
         db.session.commit()
@@ -256,22 +256,34 @@ def logout():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        if User.query.filter_by(username=request.form['username']).first():
-            flash('このユーザー名は既に使用されています')
+        try:
+            # 既存ユーザーチェック
+            if User.query.filter_by(username=request.form['username']).first():
+                flash('このユーザー名は既に使用されています')
+                return redirect(url_for('register'))
+            if User.query.filter_by(email=request.form['email']).first():
+                flash('このメールアドレスは既に使用されています')
+                return redirect(url_for('register'))
+            
+            # 新規ユーザー作成
+            user = User(
+                username=request.form['username'],
+                email=request.form['email'],
+                is_admin=False  # デフォルト値を設定
+            )
+            user.set_password(request.form['password'])
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            flash('ユーザー登録が完了しました')
+            return redirect(url_for('login'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash('登録中にエラーが発生しました')
             return redirect(url_for('register'))
-        if User.query.filter_by(email=request.form['email']).first():
-            flash('このメールアドレスは既に使用されています')
-            return redirect(url_for('register'))
-        
-        user = User(
-            username=request.form['username'],
-            email=request.form['email']
-        )
-        user.set_password(request.form['password'])
-        db.session.add(user)
-        db.session.commit()
-        flash('ユーザー登録が完了しました')
-        return redirect(url_for('login'))
+            
     return render_template('register.html')
 
 @app.route('/users')
