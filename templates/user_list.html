@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>ユーザー一覧</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ユーザー名</th>
+            <th>メールアドレス</th>
+            <th>管理者権限</th>
+            <th>登録日</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ '○' if user.is_admin else '×' }}</td>
+            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+            <td>
+                <a href="{{ url_for('edit_user', id=user.id) }}" class="btn btn-primary btn-sm">編集</a>
+                {% if current_user.is_admin and user.id != current_user.id %}
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="confirmDelete({{ user.id }}, '{{ user.username }}')">削除</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<form id="deleteForm" method="post" style="display: none;"></form>
+
+<script>
+function confirmDelete(userId, username) {
+    if (confirm(`ユーザー「${username}」を削除しますか？\nこの操作は取り消せません。`)) {
+        const form = document.getElementById('deleteForm');
+        form.action = `/delete_user/${userId}`;
+        form.submit();
+    }
+}
+</script>
+{% endblock %} 

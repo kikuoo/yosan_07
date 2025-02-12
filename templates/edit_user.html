@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>ユーザー編集</h2>
+
+<form method="post">
+    <div class="mb-3">
+        <label for="username" class="form-label">ユーザー名</label>
+        <input type="text" class="form-control" id="username" name="username" 
+               value="{{ user.username }}" {% if not current_user.is_admin %}readonly{% endif %} required>
+    </div>
+    <div class="mb-3">
+        <label for="email" class="form-label">メールアドレス</label>
+        <input type="email" class="form-control" id="email" name="email" 
+               value="{{ user.email }}" {% if not current_user.is_admin %}readonly{% endif %} required>
+    </div>
+    <div class="mb-3">
+        <label for="password" class="form-label">新しいパスワード（変更する場合のみ）</label>
+        <input type="password" class="form-control" id="password" name="password">
+    </div>
+    {% if current_user.is_admin %}
+    <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="is_admin" name="is_admin" 
+               {% if user.is_admin %}checked{% endif %}>
+        <label class="form-check-label" for="is_admin">管理者権限</label>
+    </div>
+    {% endif %}
+    <button type="submit" class="btn btn-primary">更新</button>
+    <a href="{{ url_for('user_list' if current_user.is_admin else 'index') }}" class="btn btn-secondary">キャンセル</a>
+</form>
+{% endblock %} 

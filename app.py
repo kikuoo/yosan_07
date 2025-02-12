@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import datetime, timezone
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -12,6 +14,10 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'ログインしてください。'
 
 # モデル定義
 class Project(db.Model):
@@ -20,8 +26,8 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     project_code = db.Column(db.String(50), nullable=False)
     project_name = db.Column(db.String(200), nullable=False)
-    contract_amount = db.Column(db.Numeric(12, 0), nullable=False)
-    budget_amount = db.Column(db.Numeric(12, 0), nullable=False)
+    contract_amount = db.Column(db.Integer, nullable=False)
+    budget_amount = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
@@ -32,11 +38,11 @@ class WorkType(db.Model):
     __tablename__ = 'work_types'
     
     id = db.Column(db.Integer, primary_key=True)
-    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id', ondelete='CASCADE'), nullable=False)
     work_code = db.Column(db.String(50), nullable=False)
     work_name = db.Column(db.String(200), nullable=False)
-    budget_amount = db.Column(db.Numeric(12, 0), nullable=False)
-    remaining_amount = db.Column(db.Numeric(12, 0), nullable=False)
+    budget_amount = db.Column(db.Integer, nullable=False)
+    remaining_amount = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
@@ -55,7 +61,28 @@ class Payment(db.Model):
     payment_type = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
 
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128))
+    is_admin = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+        
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(id):
+    return User.query.get(int(id))
+
 @app.route('/')
+@login_required
 def index():
     projects = Project.query.order_by(Project.created_at.desc()).all()
     return render_template('index.html', projects=projects)
@@ -209,6 +236,89 @@ def delete_payment(id):
     db.session.commit()
     flash('支払い情報が削除されました')
     return redirect(url_for('work_type_list', project_id=project_id))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user = User.query.filter_by(username=request.form['username']).first()
+        if user and user.check_password(request.form['password']):
+            login_user(user)
+            return redirect(url_for('index'))
+        flash('ユーザー名またはパスワードが正しくありません')
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        if User.query.filter_by(username=request.form['username']).first():
+            flash('このユーザー名は既に使用されています')
+            return redirect(url_for('register'))
+        if User.query.filter_by(email=request.form['email']).first():
+            flash('このメールアドレスは既に使用されています')
+            return redirect(url_for('register'))
+        
+        user = User(
+            username=request.form['username'],
+            email=request.form['email']
+        )
+        user.set_password(request.form['password'])
+        db.session.add(user)
+        db.session.commit()
+        flash('ユーザー登録が完了しました')
+        return redirect(url_for('login'))
+    return render_template('register.html')
+
+@app.route('/users')
+@login_required
+def user_list():
+    if not current_user.is_admin:
+        flash('この操作には管理者権限が必要です')
+        return redirect(url_for('index'))
+    users = User.query.all()
+    return render_template('user_list.html', users=users)
+
+@app.route('/edit_user/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_user(id):
+    if not current_user.is_admin and current_user.id != id:
+        flash('この操作は許可されていません')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(id)
+    if request.method == 'POST':
+        if current_user.is_admin:
+            user.username = request.form['username']
+            user.email = request.form['email']
+            user.is_admin = 'is_admin' in request.form
+        if request.form.get('password'):
+            user.set_password(request.form['password'])
+        db.session.commit()
+        flash('ユーザー情報を更新しました')
+        return redirect(url_for('user_list' if current_user.is_admin else 'index'))
+    return render_template('edit_user.html', user=user)
+
+@app.route('/delete_user/<int:id>', methods=['POST'])
+@login_required
+def delete_user(id):
+    if not current_user.is_admin:
+        flash('この操作には管理者権限が必要です')
+        return redirect(url_for('index'))
+    
+    user = User.query.get_or_404(id)
+    if user.id == current_user.id:
+        flash('自分自身は削除できません')
+        return redirect(url_for('user_list'))
+    
+    db.session.delete(user)
+    db.session.commit()
+    flash('ユーザーを削除しました')
+    return redirect(url_for('user_list'))
 
 if __name__ == '__main__':
     app.run(debug=True) 
