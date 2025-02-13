@@ -67,7 +67,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
+    password_hash = db.Column(db.String(255))
     is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     
@@ -257,6 +257,15 @@ def logout():
 def register():
     if request.method == 'POST':
         try:
+            # 必須フィールドの確認
+            if not all([
+                request.form.get('username'),
+                request.form.get('email'),
+                request.form.get('password')
+            ]):
+                flash('すべての項目を入力してください')
+                return redirect(url_for('register'))
+
             # 既存ユーザーチェック
             if User.query.filter_by(username=request.form['username']).first():
                 flash('このユーザー名は既に使用されています')
@@ -268,8 +277,7 @@ def register():
             # 新規ユーザー作成
             user = User(
                 username=request.form['username'],
-                email=request.form['email'],
-                is_admin=False  # デフォルト値を設定
+                email=request.form['email']
             )
             user.set_password(request.form['password'])
             
@@ -281,6 +289,7 @@ def register():
             
         except Exception as e:
             db.session.rollback()
+            print(f"登録エラー: {str(e)}")  # エラーの詳細をログに出力
             flash('登録中にエラーが発生しました')
             return redirect(url_for('register'))
             
