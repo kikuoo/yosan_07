@@ -164,6 +164,15 @@ def edit_work_type(id):
 def payment(work_type_id):
     work_type = WorkType.query.get_or_404(work_type_id)
     
+    # 年の選択肢を生成（現在年から5年分 + 未定）
+    current_year = datetime.now().year
+    years = [(str(year), str(year)) for year in range(current_year - 2, current_year + 4)]
+    years.append(('undecided', '未定'))
+    
+    # 月の選択肢を生成（1-12月 + 未定）
+    months = [(str(month), f"{month}月") for month in range(1, 13)]
+    months.append(('undecided', '未定'))
+    
     if request.method == 'POST':
         # 年と月の処理
         year = request.form['year']
@@ -180,14 +189,17 @@ def payment(work_type_id):
             contractor=request.form['contractor'],
             description=request.form['description'],
             payment_type=request.form['payment_type'],
-            amount=request.form['amount']
+            amount=int(request.form['amount'])
         )
         db.session.add(payment)
         db.session.commit()
         flash('支払い情報を登録しました')
         return redirect(url_for('work_type_list', project_id=work_type.project_id))
         
-    return render_template('payment.html', work_type=work_type)
+    return render_template('payment.html', 
+                         work_type=work_type,
+                         years=years,
+                         months=months)
 
 @app.route('/api/payment_history/<int:work_type_id>')
 def payment_history(work_type_id):
