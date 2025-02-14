@@ -165,10 +165,18 @@ def payment(work_type_id):
     work_type = WorkType.query.get_or_404(work_type_id)
     
     if request.method == 'POST':
+        # 年と月の処理
+        year = request.form['year']
+        month = request.form['month']
+        
+        # 未定の場合は0を設定
+        year = 0 if year == 'undecided' else int(year)
+        month = 0 if year == 0 or month == 'undecided' else int(month)
+        
         payment = Payment(
             work_type_id=work_type_id,
-            year=request.form['year'],
-            month=request.form['month'],
+            year=year,
+            month=month,
             contractor=request.form['contractor'],
             description=request.form['description'],
             payment_type=request.form['payment_type'],
@@ -189,7 +197,7 @@ def payment_history(work_type_id):
     return jsonify({
         'payments': [{
             'id': payment.id,
-            'payment_date': f"{payment.year}年{payment.month}月",
+            'payment_date': "未定" if payment.year == 0 else f"{payment.year}年{payment.month if payment.month != 0 else '未定'}月",
             'contractor': payment.contractor,
             'amount': f"¥{payment.amount:,}",
             'description': payment.description,
