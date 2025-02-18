@@ -4,6 +4,7 @@ from flask_migrate import Migrate
 from datetime import datetime, timezone
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+import locale
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -18,6 +19,18 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'ログインしてください。'
+
+# 日本語ロケールを設定
+locale.setlocale(locale.LC_ALL, 'ja_JP.UTF-8')
+
+def format_currency(value):
+    """通貨を日本円形式でフォーマットする"""
+    if value is None:
+        return '¥0'
+    return f'¥{value:,}'
+
+# カスタムフィルターを登録
+app.jinja_env.filters['format_currency'] = format_currency
 
 # モデル定義
 class Project(db.Model):
@@ -48,6 +61,12 @@ class WorkType(db.Model):
     
     # 関連する支払い情報が削除されるように設定
     payments = db.relationship('Payment', backref='work_type', lazy=True, cascade='all, delete-orphan')
+
+    def calculate_remaining_amount(self):
+        """予算残額を計算する。マイナスの場合は超過を表す"""
+        total_payments = sum(payment.amount for payment in self.payments)
+        self.remaining_amount = self.budget_amount - total_payments
+        return self.remaining_amount
 
 class Payment(db.Model):
     __tablename__ = 'payments'
@@ -110,8 +129,8 @@ def edit_project(id):
     if request.method == 'POST':
         project.project_code = request.form['project_code']
         project.project_name = request.form['project_name']
-        project.contract_amount = request.form['contract_amount']
-        project.budget_amount = request.form['budget_amount']
+        project.contract_amount = int(request.form['contract_amount'])
+        project.budget_amount = int(request.form['budget_amount'])
         
         db.session.commit()
         flash('物件が正常に更新されました')
@@ -119,13 +138,31 @@ def edit_project(id):
     
     return render_template('edit_project.html', project=project)
 
-@app.route('/project/<int:project_id>/work_types')
+@app.route('/projects/<int:project_id>/work_types')
 def work_type_list(project_id):
     project = Project.query.get_or_404(project_id)
-    work_types = WorkType.query.filter_by(project_id=project_id).order_by(WorkType.work_code).all()
-    return render_template('work_type_list.html', project=project, work_types=work_types)
+    work_types = WorkType.query.filter_by(project_id=project_id).all()
+    
+    # 各工種の残額を計算
+    for work_type in work_types:
+        work_type.remaining_amount = work_type.calculate_remaining_amount()
+        db.session.add(work_type)  # 変更を追跡
+    db.session.commit()  # 変更を保存
+    
+    # 全体の支払い合計と残額を計算
+    total_payment = sum(
+        sum(payment.amount for payment in work_type.payments)
+        for work_type in work_types
+    )
+    remaining_budget = project.budget_amount - total_payment
+    
+    return render_template('work_type_list.html', 
+                         project=project, 
+                         work_types=work_types,
+                         total_payment=total_payment,
+                         remaining_budget=remaining_budget)
 
-@app.route('/project/<int:project_id>/work_types/add', methods=['GET', 'POST'])
+@app.route('/projects/<int:project_id>/work_types/add', methods=['GET', 'POST'])
 def add_work_type(project_id):
     project = Project.query.get_or_404(project_id)
     
@@ -134,8 +171,8 @@ def add_work_type(project_id):
             project_id=project_id,
             work_code=request.form['work_code'],
             work_name=request.form['work_name'],
-            budget_amount=request.form['budget_amount'],
-            remaining_amount=request.form['budget_amount']  # 初期値は予算額と同じ
+            budget_amount=int(request.form['budget_amount']),
+            remaining_amount=int(request.form['budget_amount'])
         )
         db.session.add(work_type)
         db.session.commit()
@@ -220,15 +257,35 @@ def payment_history(work_type_id):
 @app.route('/edit_payment/<int:payment_id>', methods=['GET', 'POST'])
 def edit_payment(payment_id):
     payment = Payment.query.get_or_404(payment_id)
+    work_type = payment.work_type  # WorkTypeを取得
+    
     if request.method == 'POST':
-        payment.year = int(request.form['year'])
-        payment.month = int(request.form['month'])
-        payment.contractor = request.form['contractor']
-        payment.description = request.form['description']
-        payment.payment_type = request.form['payment_type']
-        payment.amount = int(request.form['amount'])
-        db.session.commit()
-        return redirect(url_for('work_type_list', project_id=payment.work_type.project_id))
+        try:
+            # フォームからのデータを取得
+            year = request.form.get('year')
+            month = request.form.get('month')
+            
+            # 数値に変換（文字列で'0'が来た場合も正しく処理）
+            payment.year = int(year) if year else 0
+            payment.month = int(month) if month else 0
+            
+            payment.contractor = request.form.get('contractor')
+            payment.description = request.form.get('description')
+            payment.payment_type = request.form.get('payment_type')
+            payment.amount = int(request.form.get('amount'))
+            
+            # 残額を再計算
+            work_type.remaining_amount = work_type.calculate_remaining_amount()
+            
+            db.session.commit()
+            flash('支払い情報を更新しました')
+            return redirect(url_for('work_type_list', project_id=work_type.project_id))
+            
+        except (ValueError, TypeError) as e:
+            db.session.rollback()
+            flash('入力データが不正です')
+            return redirect(url_for('edit_payment', payment_id=payment_id))
+            
     return render_template('edit_payment.html', payment=payment)
 
 @app.route('/delete_project/<int:id>', methods=['POST'])

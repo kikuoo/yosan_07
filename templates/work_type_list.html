@@ -20,8 +20,10 @@
         <tr>
             <td>{{ work_type.work_code }}</td>
             <td>{{ work_type.work_name }}</td>
-            <td>{{ work_type.budget_amount }}</td>
-            <td>{{ work_type.remaining_amount }}</td>
+            <td class="text-end">{{ work_type.budget_amount|format_currency }}</td>
+            <td class="text-end {% if work_type.remaining_amount < 0 %}text-danger{% endif %}">
+                {{ work_type.remaining_amount|format_currency }}
+            </td>
             <td>
                 <a href="{{ url_for('edit_work_type', id=work_type.id) }}" class="btn btn-primary btn-sm">編集</a>
                 <a href="{{ url_for('payment', work_type_id=work_type.id) }}" class="btn btn-success btn-sm">支払い登録</a>
@@ -53,6 +55,14 @@
         {% endfor %}
     </tbody>
 </table>
+
+<div class="mt-3">
+    <p>予算額: {{ project.budget_amount|format_currency }}</p>
+    <p>支払合計: {{ total_payment|format_currency }}</p>
+    <p {% if remaining_budget < 0 %}class="text-danger"{% endif %}>
+        残額: {{ remaining_budget|format_currency }}
+    </p>
+</div>
 
 <a href="{{ url_for('index') }}" class="btn btn-secondary">戻る</a>
 

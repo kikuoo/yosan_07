@@ -3,7 +3,7 @@
 {% block content %}
 <h2>新規工種登録</h2>
 
-<form method="POST">
+<form method="post" action="{{ url_for('add_work_type', project_id=project.id) }}">
     <div class="form-group">
         <label for="work_code">工種コード</label>
         <input type="text" class="form-control" id="work_code" name="work_code" required>
