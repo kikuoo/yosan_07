@@ -104,6 +104,27 @@ def load_user(id):
 @login_required
 def index():
     projects = Project.query.order_by(Project.created_at.desc()).all()
+    
+    # 各プロジェクトの予算残額、利益額、利益率を計算
+    for project in projects:
+        # 全工種の支払い合計を計算
+        total_payments = sum(
+            sum(payment.amount for payment in work_type.payments)
+            for work_type in project.work_types
+        )
+        
+        # 予算残額を計算
+        project.remaining_budget = project.budget_amount - total_payments
+        
+        # 利益額を計算（請負金額 - 予算額）
+        project.profit = project.contract_amount - total_payments
+        
+        # 利益率を計算（利益額 ÷ 請負金額 × 100）
+        if project.contract_amount > 0:
+            project.profit_rate = (project.profit / project.contract_amount) * 100
+        else:
+            project.profit_rate = 0
+    
     return render_template('index.html', projects=projects)
 
 @app.route('/add', methods=['GET', 'POST'])
@@ -264,15 +285,16 @@ def edit_payment(payment_id):
             # フォームからのデータを取得
             year = request.form.get('year')
             month = request.form.get('month')
+            amount = request.form.get('amount')
             
             # 数値に変換（文字列で'0'が来た場合も正しく処理）
             payment.year = int(year) if year else 0
             payment.month = int(month) if month else 0
+            payment.amount = int(float(amount)) if amount else 0  # floatを経由して変換
             
             payment.contractor = request.form.get('contractor')
             payment.description = request.form.get('description')
             payment.payment_type = request.form.get('payment_type')
-            payment.amount = int(request.form.get('amount'))
             
             # 残額を再計算
             work_type.remaining_amount = work_type.calculate_remaining_amount()
@@ -283,7 +305,7 @@ def edit_payment(payment_id):
             
         except (ValueError, TypeError) as e:
             db.session.rollback()
-            flash('入力データが不正です')
+            flash('入力データが不正です。金額は正しい数値を入力してください。')
             return redirect(url_for('edit_payment', payment_id=payment_id))
             
     return render_template('edit_payment.html', payment=payment)

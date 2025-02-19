@@ -53,11 +53,19 @@
 
     <div class="mb-3">
         <label for="amount" class="form-label">支払い金額</label>
-        <input type="number" class="form-control" id="amount" name="amount" value="{{ payment.amount }}" required>
+        <input type="number" class="form-control" id="amount" name="amount" 
+               value="{{ payment.amount }}" required step="1" min="0" max="999999999999">
     </div>
 
-    <button type="submit" class="btn btn-primary">更新</button>
-    <a href="{{ url_for('work_type_list', project_id=payment.work_type.project_id) }}" class="btn btn-secondary">戻る</a>
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">更新</button>
+        <a href="{{ url_for('work_type_list', project_id=payment.work_type.project_id) }}" class="btn btn-secondary">戻る</a>
+        <button type="button" class="btn btn-danger" onclick="confirmDelete()">削除</button>
+    </div>
+</form>
+
+<!-- 削除用のフォーム -->
+<form id="deleteForm" action="{{ url_for('delete_payment', id=payment.id) }}" method="post" style="display: none;">
 </form>
 
 <script>
@@ -80,5 +88,12 @@ window.addEventListener('load', function() {
         monthSelect.disabled = true;
     }
 });
+
+// 削除確認用の関数
+function confirmDelete() {
+    if (confirm('この支払い情報を削除してもよろしいですか？')) {
+        document.getElementById('deleteForm').submit();
+    }
+}
 </script>
 {% endblock %} 
