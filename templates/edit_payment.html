@@ -41,13 +41,50 @@
         <label class="form-label">支払い種別</label>
         <div class="form-check">
             <input class="form-check-input" type="radio" name="payment_type" id="contract" value="請負" 
-                   {% if payment.payment_type == '請負' %}checked{% endif %}>
+                   {% if payment.payment_type == '請負' %}checked{% endif %}
+                   onchange="toggleProgressPayment()">
             <label class="form-check-label" for="contract">請負</label>
         </div>
         <div class="form-check">
             <input class="form-check-input" type="radio" name="payment_type" id="non_contract" value="請負外"
-                   {% if payment.payment_type == '請負外' %}checked{% endif %}>
+                   {% if payment.payment_type == '請負外' %}checked{% endif %}
+                   onchange="toggleProgressPayment()">
             <label class="form-check-label" for="non_contract">請負外</label>
+        </div>
+    </div>
+
+    <!-- 出来高払いのチェックボックス（請負の場合のみ表示） -->
+    <div id="progressPaymentDiv" class="mb-3" style="display: none;">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="is_progress_payment" name="is_progress_payment"
+                   {% if payment.is_progress_payment %}checked{% endif %}
+                   onchange="handleProgressPayment()">
+            <label class="form-check-label" for="is_progress_payment">
+                出来高払い
+            </label>
+        </div>
+    </div>
+
+    <!-- 出来高情報入力欄 -->
+    <div id="progressDetailsDiv" class="mb-3" style="display: none;">
+        <label class="form-label">出来高情報</label>
+        <div class="input-group mb-3">
+            <span class="input-group-text">出来高率</span>
+            <input type="number" class="form-control" id="progress_rate" name="progress_rate"
+                   min="0" max="100" step="0.1" value="{{ payment.progress_rate|default(0) }}">
+            <span class="input-group-text">%</span>
+        </div>
+        <div class="input-group mb-3">
+            <span class="input-group-text">前回までの出来高</span>
+            <input type="number" class="form-control" id="previous_progress" name="previous_progress"
+                   value="{{ payment.previous_progress|default(0) }}" readonly>
+            <span class="input-group-text">%</span>
+        </div>
+        <div class="input-group mb-3">
+            <span class="input-group-text">今回の出来高</span>
+            <input type="number" class="form-control" id="current_progress" name="current_progress"
+                   value="{{ payment.current_progress|default(0) }}" readonly>
+            <span class="input-group-text">%</span>
         </div>
     </div>
 
@@ -87,6 +124,8 @@ window.addEventListener('load', function() {
         monthSelect.value = '0';
         monthSelect.disabled = true;
     }
+    toggleProgressPayment();
+    handleProgressPayment();
 });
 
 // 削除確認用の関数
@@ -94,6 +133,25 @@ function confirmDelete() {
     if (confirm('この支払い情報を削除してもよろしいですか？')) {
         document.getElementById('deleteForm').submit();
     }
+}
+
+// 支払い種別による出来高払い表示制御
+function toggleProgressPayment() {
+    const isContract = document.getElementById('contract').checked;
+    const progressPaymentDiv = document.getElementById('progressPaymentDiv');
+    progressPaymentDiv.style.display = isContract ? 'block' : 'none';
+    
+    if (!isContract) {
+        document.getElementById('is_progress_payment').checked = false;
+        document.getElementById('progressDetailsDiv').style.display = 'none';
+    }
+}
+
+// 出来高払いチェックボックスの制御
+function handleProgressPayment() {
+    const isProgressPayment = document.getElementById('is_progress_payment').checked;
+    const progressDetailsDiv = document.getElementById('progressDetailsDiv');
+    progressDetailsDiv.style.display = isProgressPayment ? 'block' : 'none';
 }
 </script>
 {% endblock %} 

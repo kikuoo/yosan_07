@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask_migrate import Migrate, init, migrate, upgrade
 from datetime import datetime, timezone
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import locale
+from flask.cli import with_appcontext
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -79,6 +80,10 @@ class Payment(db.Model):
     description = db.Column(db.Text, nullable=False)
     payment_type = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
+    is_progress_payment = db.Column(db.Boolean, default=False)  # 出来高払いフラグを追加
+    progress_rate = db.Column(db.Float)
+    previous_progress = db.Column(db.Float)
+    current_progress = db.Column(db.Float)
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -247,10 +252,30 @@ def payment(work_type_id):
             contractor=request.form['contractor'],
             description=request.form['description'],
             payment_type=request.form['payment_type'],
-            amount=int(request.form['amount'])
+            amount=int(request.form['amount']),
+            is_progress_payment=request.form['payment_type'] == '出来高'  # 出来高払いフラグを設定
         )
+        
+        # 出来高払いの場合、進捗率を設定
+        if payment.is_progress_payment:
+            payment.progress_rate = float(request.form.get('progress_rate', 0))
+            payment.current_progress = payment.progress_rate
+            
+            # 前回までの出来高を取得
+            previous_payments = Payment.query.filter(
+                Payment.work_type_id == work_type_id,
+                Payment.is_progress_payment == True
+            ).order_by(Payment.id.desc()).first()
+            
+            payment.previous_progress = previous_payments.current_progress if previous_payments else 0
+        
         db.session.add(payment)
         db.session.commit()
+        
+        # 工種の残額を再計算
+        work_type.calculate_remaining_amount()
+        db.session.commit()
+        
         flash('支払い情報を登録しました')
         return redirect(url_for('work_type_list', project_id=work_type.project_id))
         
@@ -278,23 +303,37 @@ def payment_history(work_type_id):
 @app.route('/edit_payment/<int:payment_id>', methods=['GET', 'POST'])
 def edit_payment(payment_id):
     payment = Payment.query.get_or_404(payment_id)
-    work_type = payment.work_type  # WorkTypeを取得
+    work_type = payment.work_type
     
     if request.method == 'POST':
         try:
-            # フォームからのデータを取得
+            # 既存の処理
             year = request.form.get('year')
             month = request.form.get('month')
             amount = request.form.get('amount')
             
-            # 数値に変換（文字列で'0'が来た場合も正しく処理）
             payment.year = int(year) if year else 0
             payment.month = int(month) if month else 0
-            payment.amount = int(float(amount)) if amount else 0  # floatを経由して変換
+            payment.amount = int(float(amount)) if amount else 0
             
             payment.contractor = request.form.get('contractor')
             payment.description = request.form.get('description')
             payment.payment_type = request.form.get('payment_type')
+            
+            # 出来高払い関連の処理を追加
+            payment.is_progress_payment = 'is_progress_payment' in request.form
+            if payment.is_progress_payment:
+                payment.progress_rate = float(request.form.get('progress_rate', 0))
+                payment.current_progress = payment.progress_rate
+                
+                # 前回までの出来高を取得
+                previous_payments = Payment.query.filter(
+                    Payment.work_type_id == work_type.id,
+                    Payment.is_progress_payment == True,
+                    Payment.id < payment_id
+                ).order_by(Payment.id.desc()).first()
+                
+                payment.previous_progress = previous_payments.progress_rate if previous_payments else 0
             
             # 残額を再計算
             work_type.remaining_amount = work_type.calculate_remaining_amount()
@@ -439,6 +478,61 @@ def delete_user(id):
     db.session.commit()
     flash('ユーザーを削除しました')
     return redirect(url_for('user_list'))
+
+@app.route('/work_type/<int:work_type_id>/progress_payment', methods=['GET', 'POST'])
+def progress_payment(work_type_id):
+    work_type = WorkType.query.get_or_404(work_type_id)
+    
+    # 現在の年を取得
+    current_year = datetime.now().year
+    
+    # 前回までの出来高を取得
+    last_progress = Payment.query.filter_by(
+        work_type_id=work_type_id,
+        is_progress_payment=True
+    ).order_by(Payment.id.desc()).first()
+    
+    previous_progress = last_progress.current_progress if last_progress else 0
+    
+    if request.method == 'POST':
+        payment = Payment(
+            work_type_id=work_type_id,
+            year=int(request.form['year']),
+            month=int(request.form['month']),
+            contractor=request.form['contractor'],
+            description=request.form['description'],
+            payment_type='出来高',
+            amount=int(request.form['amount']),
+            is_progress_payment=True,
+            progress_rate=float(request.form['progress_rate']),
+            previous_progress=previous_progress,
+            current_progress=float(request.form['progress_rate'])
+        )
+        
+        db.session.add(payment)
+        work_type.calculate_remaining_amount()
+        db.session.commit()
+        
+        flash('出来高払いを登録しました')
+        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    
+    return render_template('progress_payment.html', 
+                         work_type=work_type,
+                         previous_progress=previous_progress,
+                         current_year=current_year)
+
+@app.cli.command("reset-db")
+@with_appcontext
+def reset_db():
+    """Reset the database."""
+    # データベースを再作成
+    db.drop_all()
+    db.create_all()
+    
+    # マイグレーション情報を初期化
+    init()
+    migrate()
+    upgrade()
 
 if __name__ == '__main__':
     app.run(debug=True) 

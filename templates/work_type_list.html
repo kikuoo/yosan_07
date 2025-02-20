@@ -1,118 +1,146 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>{{ project.project_name }} - 工種一覧</h2>
+<h2>工種一覧 - {{ project.project_name }}</h2>
 
-<a href="{{ url_for('add_work_type', project_id=project.id) }}" class="btn btn-primary mb-3">工種追加</a>
+<div class="table-responsive mb-4">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>工種コード</th>
+                <th>工種名</th>
+                <th>予算額</th>
+                <th>支払済額</th>
+                <th>残額</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for work_type in work_types %}
+            <tr>
+                <td>{{ work_type.work_code }}</td>
+                <td>{{ work_type.work_name }}</td>
+                <td>{{ work_type.budget_amount|format_currency }}</td>
+                <td>{{ (work_type.budget_amount - work_type.remaining_amount)|format_currency }}</td>
+                <td>{{ work_type.remaining_amount|format_currency }}</td>
+                <td>
+                    <div class="btn-group">
+                        <a href="{{ url_for('payment', work_type_id=work_type.id) }}" class="btn btn-primary btn-sm">支払登録</a>
+                        <a href="{{ url_for('edit_work_type', id=work_type.id) }}" class="btn btn-secondary btn-sm">編集</a>
+                    </div>
+                </td>
+            </tr>
+            <!-- 支払いリスト -->
+            <tr>
+                <td colspan="6">
+                    <div class="ms-4">
+                        <!-- 請負支払い -->
+                        {% set contract_payments = work_type.payments|selectattr('payment_type', 'equalto', '請負')|list %}
+                        {% if contract_payments %}
+                        <h6 class="mt-2">請負支払い</h6>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>支払日</th>
+                                    <th>業者名</th>
+                                    <th>金額</th>
+                                    <th>備考</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in contract_payments %}
+                                <tr>
+                                    <td>{% if payment.year %}{{ payment.year }}年{{ payment.month }}月{% else %}未定{% endif %}</td>
+                                    <td>{{ payment.contractor }}</td>
+                                    <td>{{ payment.amount|format_currency }}</td>
+                                    <td>{{ payment.description }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ url_for('edit_payment', payment_id=payment.id) }}" class="btn btn-outline-secondary btn-sm">編集</a>
+                                            <a href="{{ url_for('progress_payment', work_type_id=work_type.id) }}" class="btn btn-outline-info btn-sm">出来高払い</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
 
-<table class="table">
-    <thead>
-        <tr>
-            <th>工種コード</th>
-            <th>工種名</th>
-            <th>予算額</th>
-            <th>残額</th>
-            <th>操作</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for work_type in work_types %}
-        <tr>
-            <td>{{ work_type.work_code }}</td>
-            <td>{{ work_type.work_name }}</td>
-            <td class="text-end">{{ work_type.budget_amount|format_currency }}</td>
-            <td class="text-end {% if work_type.remaining_amount < 0 %}text-danger{% endif %}">
-                {{ work_type.remaining_amount|format_currency }}
-            </td>
-            <td>
-                <a href="{{ url_for('edit_work_type', id=work_type.id) }}" class="btn btn-primary btn-sm">編集</a>
-                <a href="{{ url_for('payment', work_type_id=work_type.id) }}" class="btn btn-success btn-sm">支払い登録</a>
-                <button class="btn btn-info btn-sm" onclick="togglePaymentHistory({{ work_type.id }})">詳細表示</button>
-            </td>
-        </tr>
-        <tr id="payment-history-{{ work_type.id }}" style="display: none;">
-            <td colspan="5">
-                <div class="payment-history-content">
-                    <h5>支払い履歴</h5>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>支払年月</th>
-                                <th>業者名</th>
-                                <th>支払額</th>
-                                <th>内容</th>
-                                <th>支払種別</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody class="payment-list-{{ work_type.id }}">
-                            <!-- JavaScriptで動的に支払い履歴が表示されます -->
-                        </tbody>
-                    </table>
-                </div>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                        <!-- 出来高払いリスト -->
+                        {% set progress_payments = work_type.payments|selectattr('payment_type', 'equalto', '出来高')|list %}
+                        {% if progress_payments %}
+                        <h6 class="mt-3">出来高払い</h6>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>支払日</th>
+                                    <th>金額</th>
+                                    <th>出来高率</th>
+                                    <th>累計出来高率</th>
+                                    <th>備考</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in progress_payments %}
+                                <tr>
+                                    <td>{{ payment.year }}年{{ payment.month }}月</td>
+                                    <td>{{ payment.amount|format_currency }}</td>
+                                    <td>{{ payment.progress_rate }}%</td>
+                                    <td>{{ payment.current_progress }}%</td>
+                                    <td>{{ payment.description }}</td>
+                                    <td>
+                                        <a href="{{ url_for('edit_payment', payment_id=payment.id) }}" class="btn btn-outline-secondary btn-sm">編集</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% endif %}
+                        {% endif %}
 
-<div class="mt-3">
-    <p>予算額: {{ project.budget_amount|format_currency }}</p>
-    <p>支払合計: {{ total_payment|format_currency }}</p>
-    <p {% if remaining_budget < 0 %}class="text-danger"{% endif %}>
-        残額: {{ remaining_budget|format_currency }}
-    </p>
+                        <!-- 請負外支払い -->
+                        {% set non_contract_payments = work_type.payments|selectattr('payment_type', 'equalto', '請負外')|list %}
+                        {% if non_contract_payments %}
+                        <h6 class="mt-3">請負外支払い</h6>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>支払日</th>
+                                    <th>業者名</th>
+                                    <th>金額</th>
+                                    <th>備考</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in non_contract_payments %}
+                                <tr>
+                                    <td>{% if payment.year %}{{ payment.year }}年{{ payment.month }}月{% else %}未定{% endif %}</td>
+                                    <td>{{ payment.contractor }}</td>
+                                    <td>{{ payment.amount|format_currency }}</td>
+                                    <td>{{ payment.description }}</td>
+                                    <td>
+                                        <a href="{{ url_for('edit_payment', payment_id=payment.id) }}" class="btn btn-outline-secondary btn-sm">編集</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% endif %}
+
+                        {% if not contract_payments and not non_contract_payments %}
+                        <p class="text-muted mt-2">支払い情報はありません</p>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
+<a href="{{ url_for('add_work_type', project_id=project.id) }}" class="btn btn-primary">工種追加</a>
 <a href="{{ url_for('index') }}" class="btn btn-secondary">戻る</a>
 
-<script>
-function togglePaymentHistory(workTypeId) {
-    const historyRow = document.getElementById(`payment-history-${workTypeId}`);
-    if (historyRow.style.display === 'none') {
-        // 支払い履歴を取得して表示
-        fetch(`/api/payment_history/${workTypeId}`)
-            .then(response => response.json())
-            .then(data => {
-                const paymentList = document.querySelector(`.payment-list-${workTypeId}`);
-                if (data.payments.length === 0) {
-                    paymentList.innerHTML = '<tr><td colspan="6">支払い履歴がありません</td></tr>';
-                } else {
-                    // 請負と請負外で分類
-                    const contractPayments = data.payments.filter(p => p.payment_type === '請負');
-                    const nonContractPayments = data.payments.filter(p => p.payment_type === '請負外');
-                    
-                    // 請負の支払い履歴を表示
-                    const contractRows = contractPayments.map(payment => createPaymentRow(payment));
-                    
-                    // 請負外の支払い履歴を表示（区切り行を追加）
-                    const nonContractRows = nonContractPayments.length > 0 
-                        ? [`<tr><td colspan="6" class="table-secondary">請負外支払い</td></tr>`]
-                            .concat(nonContractPayments.map(payment => createPaymentRow(payment)))
-                        : [];
-                    
-                    paymentList.innerHTML = contractRows.concat(nonContractRows).join('');
-                }
-                historyRow.style.display = 'table-row';
-            });
-    } else {
-        historyRow.style.display = 'none';
-    }
-}
-
-function createPaymentRow(payment) {
-    return `
-        <tr>
-            <td>${payment.payment_date}</td>
-            <td>${payment.contractor}</td>
-            <td>${payment.amount}</td>
-            <td>${payment.description || ''}</td>
-            <td>${payment.payment_type}</td>
-            <td>
-                <a href="/edit_payment/${payment.id}" class="btn btn-primary btn-sm">編集</a>
-            </td>
-        </tr>
-    `;
-}
-</script>
 {% endblock %} 
