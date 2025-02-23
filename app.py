@@ -6,6 +6,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 import locale
 from flask.cli import with_appcontext
+import shutil
+import os
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -84,6 +86,7 @@ class Payment(db.Model):
     progress_rate = db.Column(db.Float)
     previous_progress = db.Column(db.Float)
     current_progress = db.Column(db.Float)
+    contract_id = db.Column(db.Integer, db.ForeignKey('payments.id'))
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -483,30 +486,50 @@ def delete_user(id):
 def progress_payment(work_type_id):
     work_type = WorkType.query.get_or_404(work_type_id)
     
-    # 現在の年を取得
-    current_year = datetime.now().year
+    # リクエストから請負契約IDを取得
+    contract_id = request.args.get('contract_id')
+    if not contract_id:
+        flash('請負契約が指定されていません')
+        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    
+    # 指定された請負契約を取得
+    contract_payment = Payment.query.get_or_404(contract_id)
+    if contract_payment.work_type_id != work_type_id or contract_payment.payment_type != '請負':
+        flash('無効な請負契約です')
+        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    
+    # この請負契約に関連する出来高支払いを取得
+    progress_payments = Payment.query.filter_by(
+        work_type_id=work_type_id,
+        payment_type='出来高',
+        contractor=contract_payment.contractor,
+        contract_id=contract_payment.id  # 請負契約IDでフィルタリング
+    ).order_by(Payment.year.desc(), Payment.month.desc()).all()
     
     # 前回までの出来高を取得
-    last_progress = Payment.query.filter_by(
-        work_type_id=work_type_id,
-        is_progress_payment=True
-    ).order_by(Payment.id.desc()).first()
-    
+    last_progress = progress_payments[0] if progress_payments else None
     previous_progress = last_progress.current_progress if last_progress else 0
     
+    # 出来高支払い合計額を計算
+    total_progress_amount = sum(payment.amount for payment in progress_payments)
+    
     if request.method == 'POST':
+        amount = int(request.form['amount'])
+        progress_rate = (amount / contract_payment.amount) * 100
+        
         payment = Payment(
             work_type_id=work_type_id,
             year=int(request.form['year']),
             month=int(request.form['month']),
-            contractor=request.form['contractor'],
+            contractor=contract_payment.contractor,
             description=request.form['description'],
             payment_type='出来高',
-            amount=int(request.form['amount']),
+            amount=amount,
             is_progress_payment=True,
-            progress_rate=float(request.form['progress_rate']),
+            progress_rate=progress_rate,
             previous_progress=previous_progress,
-            current_progress=float(request.form['progress_rate'])
+            current_progress=previous_progress + progress_rate,
+            contract_id=contract_payment.id  # 請負契約IDを保存
         )
         
         db.session.add(payment)
@@ -518,21 +541,27 @@ def progress_payment(work_type_id):
     
     return render_template('progress_payment.html', 
                          work_type=work_type,
+                         contract_payment=contract_payment,
                          previous_progress=previous_progress,
-                         current_year=current_year)
+                         total_progress_amount=total_progress_amount,
+                         current_year=datetime.now().year)
 
-@app.cli.command("reset-db")
-@with_appcontext
+@app.cli.command('reset-db')
 def reset_db():
-    """Reset the database."""
-    # データベースを再作成
+    # 既存のDBをドロップ
     db.drop_all()
+    
+    # テーブルを再作成
     db.create_all()
     
-    # マイグレーション情報を初期化
-    init()
-    migrate()
-    upgrade()
+    # マイグレーションフォルダがある場合は削除して再初期化
+    if os.path.exists('migrations'):
+        shutil.rmtree('migrations')
+    
+    # マイグレーションを初期化
+    os.system('flask db init')
+    os.system('flask db migrate')
+    os.system('flask db upgrade')
 
 if __name__ == '__main__':
     app.run(debug=True) 

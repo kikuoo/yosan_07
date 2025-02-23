@@ -8,13 +8,13 @@
         <h5 class="card-title">工種情報</h5>
         <div class="row">
             <div class="col-md-6">
-                <p class="mb-2">業者名: {{ work_type.payments|selectattr('payment_type', 'equalto', '請負')|first|attr('contractor') }}</p>
-                <p class="mb-2">請負金額: {{ work_type.budget_amount|format_currency }}</p>
+                <p class="mb-2">業者名: {{ contract_payment.contractor }}</p>
+                <p class="mb-2">請負契約金額: {{ contract_payment.amount|format_currency }}</p>
                 <p class="mb-2">前回までの出来高: {{ previous_progress }}%</p>
             </div>
             <div class="col-md-6">
-                <p class="mb-2">支払済金額: {{ (work_type.budget_amount - work_type.remaining_amount)|format_currency }}</p>
-                <p class="mb-2">支払残額: {{ work_type.remaining_amount|format_currency }}</p>
+                <p class="mb-2">出来高支払済額: {{ total_progress_amount|format_currency }}</p>
+                <p class="mb-2">支払残額: {{ (contract_payment.amount - total_progress_amount)|format_currency }}</p>
             </div>
         </div>
     </div>
@@ -76,15 +76,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const amountInput = document.getElementById('amount');
     const progressRateInput = document.getElementById('progress_rate');
     const totalProgressInput = document.getElementById('total_progress');
-    const workTypeBudgetAmount = {{ work_type.budget_amount }};
+    const contractAmount = {{ contract_payment.amount }};
     const previousProgress = {{ previous_progress }};
     
     function updateProgressRate() {
         const amount = parseFloat(amountInput.value) || 0;
-        const progressRate = (amount / workTypeBudgetAmount) * 100;
+        const progressRate = (amount / contractAmount) * 100;
         progressRateInput.value = progressRate.toFixed(1);
         
-        // 累計出来高率を更新
         const totalProgress = previousProgress + progressRate;
         totalProgressInput.value = totalProgress.toFixed(1);
     }
