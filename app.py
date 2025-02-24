@@ -55,6 +55,7 @@ class Project(db.Model):
     contract_amount = db.Column(db.Integer, nullable=False)  # 請負金額
     budget_amount = db.Column(db.Integer, nullable=False)    # 当初実行予算額
     current_budget = db.Column(db.Integer)                   # 実行予算額（変更後）
+    target_management_rate = db.Column(db.Float, default=0)  # 目標一般管理費率（％）
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
@@ -94,6 +95,20 @@ class Project(db.Model):
         
         # 工種がある場合は工種合計、ない場合は当初予算を返す
         return total_work_type_budget if total_work_type_budget > 0 else self.budget_amount
+
+    @property
+    def target_management_cost(self):
+        """目標一般管理費を計算"""
+        if self.target_management_rate > 0:
+            base_management = self.contract_amount - self.budget_amount
+            return base_management * (1 + (self.target_management_rate / 100))
+        return self.contract_amount - self.budget_amount
+
+    @property
+    def target_management_profit(self):
+        """目標一般管理費の利益アップ額を計算"""
+        base_management = self.contract_amount - self.budget_amount
+        return self.target_management_cost - base_management
 
 class WorkType(db.Model):
     __tablename__ = 'work_types'
@@ -815,6 +830,18 @@ def edit_profit(work_type_id):
     return render_template('edit_profit.html', 
                          work_type=work_type,
                          profit_payment=profit_payment)
+
+@app.route('/projects/<int:project_id>/target_management', methods=['GET', 'POST'])
+def set_target_management(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    if request.method == 'POST':
+        project.target_management_rate = float(request.form['target_rate'])
+        db.session.commit()
+        flash('目標一般管理費率を設定しました')
+        return redirect(url_for('work_type_list', project_id=project.id))
+    
+    return render_template('set_target_management.html', project=project)
 
 @app.cli.command('reset-db')
 def reset_db():
