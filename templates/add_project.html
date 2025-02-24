@@ -19,6 +19,11 @@
         <label for="budget_amount" class="form-label">実行予算額</label>
         <input type="number" class="form-control" id="budget_amount" name="budget_amount" required>
     </div>
+    <div class="mb-3">
+        <label for="current_budget" class="form-label">実行予算額</label>
+        <input type="number" class="form-control" id="current_budget" name="current_budget">
+        <div class="form-text">未入力の場合、当初実行予算額と同じ値が設定されます</div>
+    </div>
     <button type="submit" class="btn btn-primary">追加</button>
     <a href="{{ url_for('index') }}" class="btn btn-secondary">キャンセル</a>
 </form>

@@ -42,13 +42,35 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     project_code = db.Column(db.String(50), nullable=False)
     project_name = db.Column(db.String(200), nullable=False)
-    contract_amount = db.Column(db.Integer, nullable=False)
-    budget_amount = db.Column(db.Integer, nullable=False)
+    contract_amount = db.Column(db.Integer, nullable=False)  # 請負金額
+    budget_amount = db.Column(db.Integer, nullable=False)    # 当初実行予算額
+    current_budget = db.Column(db.Integer)                   # 実行予算額（変更後）
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
     # 関連する工種が削除されるように設定
     work_types = db.relationship('WorkType', backref='project', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def initial_profit_rate(self):
+        """当初利益率を計算"""
+        if self.contract_amount > 0:
+            return ((self.contract_amount - self.budget_amount) / self.contract_amount) * 100
+        return 0
+
+    @property
+    def current_profit_rate(self):
+        """現在の利益率を計算"""
+        if self.contract_amount > 0 and self.current_budget:
+            return ((self.contract_amount - self.current_budget) / self.contract_amount) * 100
+        return self.initial_profit_rate
+
+    @property
+    def budget_difference(self):
+        """予算増減額を計算"""
+        if self.current_budget:
+            return self.current_budget - self.budget_amount
+        return 0
 
 class WorkType(db.Model):
     __tablename__ = 'work_types'
@@ -138,15 +160,19 @@ def index():
 @app.route('/add', methods=['GET', 'POST'])
 def add_project():
     if request.method == 'POST':
+        budget_amount = int(request.form['budget_amount'])
+        current_budget = int(request.form.get('current_budget', 0)) or budget_amount
+        
         project = Project(
             project_code=request.form['project_code'],
             project_name=request.form['project_name'],
             contract_amount=int(request.form['contract_amount']),
-            budget_amount=int(request.form['budget_amount'])
+            budget_amount=budget_amount,
+            current_budget=current_budget
         )
         db.session.add(project)
         db.session.commit()
-        flash('物件が正常に追加されました.')
+        flash('物件を追加しました')
         return redirect(url_for('index'))
     
     return render_template('add_project.html')
@@ -160,9 +186,10 @@ def edit_project(id):
         project.project_name = request.form['project_name']
         project.contract_amount = int(request.form['contract_amount'])
         project.budget_amount = int(request.form['budget_amount'])
+        project.current_budget = int(request.form.get('current_budget', 0)) or project.budget_amount
         
         db.session.commit()
-        flash('物件が正常に更新されました')
+        flash('物件を更新しました')
         return redirect(url_for('index'))
     
     return render_template('edit_project.html', project=project)
@@ -170,28 +197,127 @@ def edit_project(id):
 @app.route('/projects/<int:project_id>/work_types')
 def work_type_list(project_id):
     project = Project.query.get_or_404(project_id)
-    work_types = WorkType.query.filter_by(project_id=project_id).all()
+    
+    # 検索パラメータを取得
+    search_code = request.args.get('search_code', '')
+    search_contractor = request.args.get('search_contractor', '')
+    
+    # 工種を取得（コード順にソート）
+    work_types = WorkType.query.filter_by(project_id=project_id).order_by(WorkType.work_code).all()
+    
+    # 業者一覧を取得（重複を除く）
+    contractors = db.session.query(Payment.contractor).distinct().join(WorkType).filter(
+        WorkType.project_id == project_id
+    ).all()
+    contractors = [c[0] for c in contractors]
+    
+    # 検索条件による絞り込み
+    filtered_work_types = []
+    for work_type in work_types:
+        # 工種コードでの絞り込み
+        if search_code and work_type.work_code != search_code:
+            continue
+            
+        # 業者名での絞り込み
+        if search_contractor:
+            payments = [p for p in work_type.payments if search_contractor.lower() in p.contractor.lower()]
+            if payments:
+                # 支払い情報を業者でフィルタリングしてワークタイプにセット
+                work_type.filtered_payments = payments
+                filtered_work_types.append(work_type)
+        else:
+            filtered_work_types.append(work_type)
+            work_type.filtered_payments = work_type.payments
     
     # 各工種の残額を計算
-    for work_type in work_types:
+    for work_type in filtered_work_types:
         work_type.remaining_amount = work_type.calculate_remaining_amount()
-        db.session.add(work_type)  # 変更を追跡
-    db.session.commit()  # 変更を保存
+        db.session.add(work_type)
+    db.session.commit()
     
     # 全体の支払い合計と残額を計算
     total_payment = sum(
         sum(payment.amount for payment in work_type.payments)
-        for work_type in work_types
+        for work_type in filtered_work_types
     )
     remaining_budget = project.budget_amount - total_payment
     
     return render_template('work_type_list.html', 
                          project=project, 
-                         work_types=work_types,
+                         work_types=filtered_work_types,
                          total_payment=total_payment,
-                         remaining_budget=remaining_budget)
+                         remaining_budget=remaining_budget,
+                         work_type_codes=WORK_TYPE_CODES,
+                         contractors=contractors,
+                         search_code=search_code,
+                         search_contractor=search_contractor)
 
-@app.route('/projects/<int:project_id>/work_types/add', methods=['GET', 'POST'])
+# 工種コードの定義
+WORK_TYPE_CODES = [
+    ('41-01', '準備費'),
+    ('41-02', '仮設物費'),
+    ('41-03', '廃棄物処分費'),
+    ('41-04', '共通仮設'),
+    ('41-05', '直接仮設工事'),
+    ('41-90', '仮設工事一式'),
+    ('42-01', '土工事'),
+    ('42-02', '地業工事'),
+    ('42-03', '鉄筋工事'),
+    ('42-04', '型枠工事'),
+    ('42-05', 'コンクリート工事'),
+    ('42-06', '鉄骨工事'),
+    ('42-07', '組積ALC工事'),
+    ('42-08', '防水工事'),
+    ('42-09', '石工事'),
+    ('42-10', 'タイル工事'),
+    ('42-11', '木工事'),
+    ('42-12', '屋根工事'),
+    ('42-13', '外装工事'),
+    ('42-14', '金属工事'),
+    ('42-15', '左官工事'),
+    ('42-16', '木製建具工事'),
+    ('42-17', '金属製建具工事'),
+    ('42-18', '硝子工事'),
+    ('42-19', '塗装吹付工事'),
+    ('42-20', '内装工事'),
+    ('42-21', '家具・雑工事'),
+    ('42-22', '仮設事務所工事'),
+    ('42-23', 'プール工事'),
+    ('42-24', 'サイン工事'),
+    ('42-25', '厨房機器工事'),
+    ('42-26', '既存改修工事'),
+    ('42-27', '特殊付帯工事'),
+    ('42-28', '住宅設備工事'),
+    ('42-29', '雑工事'),
+    ('42-90', '建築工事一式'),
+    ('43-01', '解体工事'),
+    ('43-02', '外構開発工事'),
+    ('43-03', '附帯建物工事'),
+    ('43-04', '別途外構工事'),
+    ('43-05', '山留工事'),
+    ('43-06', '杭工事'),
+    ('43-90', '解体外構附帯工事一式'),
+    ('44-01', '電気設備工事'),
+    ('44-02', '給排水衛生設備工事'),
+    ('44-03', '空調換気設備工事'),
+    ('44-04', '浄化槽工事'),
+    ('44-05', '昇降機工事'),
+    ('44-06', 'オイル配管設備工事'),
+    ('44-07', '厨房機器工事'),
+    ('44-08', 'ガス設備工事'),
+    ('44-09', '消防設備工事'),
+    ('44-90', '設備工事一式'),
+    ('44-91', '諸経費'),
+    ('45-01', '追加変更工事'),
+    ('45-02', '追加変更工事2'),
+    ('45-10', 'その他工事'),
+    ('45-90', '追加変更一式'),
+    ('46-01', '建築一式工事'),
+    ('46-02', '許認可代願料'),
+    ('46-10', 'その他工事'),
+]
+
+@app.route('/add_work_type/<int:project_id>', methods=['GET', 'POST'])
 def add_work_type(project_id):
     project = Project.query.get_or_404(project_id)
     
@@ -205,10 +331,12 @@ def add_work_type(project_id):
         )
         db.session.add(work_type)
         db.session.commit()
-        flash('工種が正常に追加されました。')
+        flash('工種を追加しました')
         return redirect(url_for('work_type_list', project_id=project_id))
     
-    return render_template('add_work_type.html', project=project)
+    return render_template('add_work_type.html', 
+                         project=project,
+                         work_type_codes=WORK_TYPE_CODES)  # 工種コードリストを渡す
 
 @app.route('/work_type/<int:id>/edit', methods=['GET', 'POST'])
 def edit_work_type(id):

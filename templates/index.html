@@ -6,41 +6,45 @@
     <a href="{{ url_for('add_project') }}" class="btn btn-primary">新規物件追加</a>
 </div>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>物件コード</th>
-            <th>物件名</th>
-            <th>請負金額</th>
-            <th>実行予算額</th>
-            <th>予算残額</th>
-            <th>利益額</th>
-            <th>利益率</th>
-            <th>操作</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for project in projects %}
-        <tr>
-            <td>{{ project.project_code }}</td>
-            <td>{{ project.project_name }}</td>
-            <td>{{ "{:,}".format(project.contract_amount) }}円</td>
-            <td>{{ "{:,}".format(project.budget_amount) }}円</td>
-            <td class="text-end {% if project.remaining_budget < 0 %}text-danger{% endif %}">
-                {{ "{:,}".format(project.remaining_budget) }}円
-            </td>
-            <td class="text-end {% if project.profit < 0 %}text-danger{% endif %}">
-                {{ "{:,}".format(project.profit) }}円
-            </td>
-            <td class="text-end {% if project.profit_rate < 0 %}text-danger{% endif %}">
-                {{ "%.1f"|format(project.profit_rate) }}%
-            </td>
-            <td>
-                <a href="{{ url_for('work_type_list', project_id=project.id) }}" class="btn btn-sm btn-info">詳細</a>
-                <a href="{{ url_for('edit_project', id=project.id) }}" class="btn btn-sm btn-primary">編集</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>物件コード</th>
+                <th>物件名</th>
+                <th>請負金額</th>
+                <th>当初実行予算額</th>
+                <th>当初利益率</th>
+                <th>実行予算額</th>
+                <th>予算増減額</th>
+                <th>現在の利益率</th>
+                <th>支払済額</th>
+                <th>残額</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for project in projects %}
+            <tr>
+                <td>{{ project.project_code }}</td>
+                <td>{{ project.project_name }}</td>
+                <td>{{ project.contract_amount|format_currency }}</td>
+                <td>{{ project.budget_amount|format_currency }}</td>
+                <td>{{ "%.1f"|format(project.initial_profit_rate) }}%</td>
+                <td>{{ project.current_budget|format_currency if project.current_budget else '未設定' }}</td>
+                <td>{{ project.budget_difference|format_currency }}</td>
+                <td>{{ "%.1f"|format(project.current_profit_rate) }}%</td>
+                <td>{{ (project.budget_amount - project.remaining_budget)|format_currency }}</td>
+                <td>{{ project.remaining_budget|format_currency }}</td>
+                <td>
+                    <div class="btn-group">
+                        <a href="{{ url_for('work_type_list', project_id=project.id) }}" class="btn btn-primary btn-sm">工種一覧</a>
+                        <a href="{{ url_for('edit_project', id=project.id) }}" class="btn btn-secondary btn-sm">編集</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %} 
