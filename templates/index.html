@@ -13,13 +13,11 @@
                 <th>物件コード</th>
                 <th>物件名</th>
                 <th>請負金額</th>
-                <th>当初実行予算額</th>
+                <th>契約時実行予算額</th>
                 <th>当初利益率</th>
                 <th>実行予算額</th>
                 <th>予算増減額</th>
                 <th>現在の利益率</th>
-                <th>支払済額</th>
-                <th>残額</th>
                 <th>操作</th>
             </tr>
         </thead>
@@ -30,12 +28,16 @@
                 <td>{{ project.project_name }}</td>
                 <td>{{ project.contract_amount|format_currency }}</td>
                 <td>{{ project.budget_amount|format_currency }}</td>
-                <td>{{ "%.1f"|format(project.initial_profit_rate) }}%</td>
+                <td class="{% if project.initial_profit_rate < 0 %}text-danger{% endif %}">
+                    {{ "%.1f"|format(project.initial_profit_rate) }}%
+                </td>
                 <td>{{ project.current_budget|format_currency if project.current_budget else '未設定' }}</td>
-                <td>{{ project.budget_difference|format_currency }}</td>
-                <td>{{ "%.1f"|format(project.current_profit_rate) }}%</td>
-                <td>{{ (project.budget_amount - project.remaining_budget)|format_currency }}</td>
-                <td>{{ project.remaining_budget|format_currency }}</td>
+                <td class="{% if project.budget_diff < 0 %}text-danger{% endif %}">
+                    {% if project.budget_diff > 0 %}+{% endif %}{{ project.budget_diff|format_currency }}
+                </td>
+                <td class="{% if project.current_profit_rate < 0 %}text-danger{% endif %}">
+                    {{ "%.1f"|format(project.current_profit_rate) }}%
+                </td>
                 <td>
                     <div class="btn-group">
                         <a href="{{ url_for('work_type_list', project_id=project.id) }}" class="btn btn-primary btn-sm">工種一覧</a>

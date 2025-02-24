@@ -32,8 +32,18 @@ def format_currency(value):
         return '¥0'
     return f'¥{value:,}'
 
+def subtract(value1, value2):
+    """2つの値の差を計算するフィルター"""
+    return value1 - value2
+
+def starts_with(value, prefix):
+    """文字列が指定のプレフィックスで始まるかチェックするフィルター"""
+    return str(value).startswith(prefix)
+
 # カスタムフィルターを登録
 app.jinja_env.filters['format_currency'] = format_currency
+app.jinja_env.filters['subtract'] = subtract
+app.jinja_env.filters['starts_with'] = starts_with
 
 # モデル定義
 class Project(db.Model):
@@ -67,10 +77,23 @@ class Project(db.Model):
 
     @property
     def budget_difference(self):
-        """予算増減額を計算"""
-        if self.current_budget:
-            return self.current_budget - self.budget_amount
+        """予算増減額を計算（当初予算 - 工種予算合計）"""
+        # 全工種の予算額合計を計算
+        total_work_type_budget = sum(work_type.budget_amount for work_type in self.work_types)
+        
+        # 工種がある場合は（当初予算 - 工種合計）を返す
+        if total_work_type_budget > 0:
+            return self.budget_amount - total_work_type_budget
         return 0
+
+    @property
+    def current_budget(self):
+        """現在の実行予算額を計算"""
+        # 全工種の予算額合計を計算
+        total_work_type_budget = sum(work_type.budget_amount for work_type in self.work_types)
+        
+        # 工種がある場合は工種合計、ない場合は当初予算を返す
+        return total_work_type_budget if total_work_type_budget > 0 else self.budget_amount
 
 class WorkType(db.Model):
     __tablename__ = 'work_types'
@@ -87,11 +110,43 @@ class WorkType(db.Model):
     # 関連する支払い情報が削除されるように設定
     payments = db.relationship('Payment', backref='work_type', lazy=True, cascade='all, delete-orphan')
 
+    @property
+    def contract_total(self):
+        """請負支払いの合計金額を計算"""
+        return sum(payment.amount for payment in self.payments if payment.payment_type == '請負')
+
+    @property
+    def non_contract_total(self):
+        """請負外支払いの合計金額を計算"""
+        return sum(payment.amount for payment in self.payments if payment.payment_type == '請負外')
+
+    @property
+    def profit_amount(self):
+        """利益計上額の合計を計算"""
+        return sum(payment.amount for payment in self.payments if payment.is_profit)
+
     def calculate_remaining_amount(self):
-        """予算残額を計算する。マイナスの場合は超過を表す"""
-        total_payments = sum(payment.amount for payment in self.payments)
-        self.remaining_amount = self.budget_amount - total_payments
+        """予算残額を計算する。利益計上額を考慮"""
+        total_payments = sum(payment.amount for payment in self.payments if not payment.is_profit)
+        self.remaining_amount = self.budget_amount - total_payments - self.profit_amount
         return self.remaining_amount
+
+    def get_monthly_non_contract_totals(self):
+        """請負外支払いの月別合計を計算"""
+        monthly_totals = {}
+        for payment in self.payments:
+            if payment.payment_type == '請負外' and payment.year > 0:  # 未定の支払いは除外
+                key = f"{payment.year}年{payment.month}月"
+                if key not in monthly_totals:
+                    monthly_totals[key] = 0
+                monthly_totals[key] += payment.amount
+        
+        # 日付順にソート
+        sorted_totals = sorted(
+            monthly_totals.items(),
+            key=lambda x: (int(x[0].split('年')[0]), int(x[0].split('年')[1].split('月')[0]))
+        )
+        return sorted_totals
 
 class Payment(db.Model):
     __tablename__ = 'payments'
@@ -109,6 +164,7 @@ class Payment(db.Model):
     previous_progress = db.Column(db.Float)
     current_progress = db.Column(db.Float)
     contract_id = db.Column(db.Integer, db.ForeignKey('payments.id'))
+    is_profit = db.Column(db.Boolean, default=False)  # 利益計上フラグを追加
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -135,16 +191,16 @@ def load_user(id):
 def index():
     projects = Project.query.order_by(Project.created_at.desc()).all()
     
-    # 各プロジェクトの予算残額、利益額、利益率を計算
+    # 各プロジェクトの予算関連情報を計算
     for project in projects:
-        # 全工種の支払い合計を計算
+        # 全工種の支払い合計を計算（支払済額）
         total_payments = sum(
             sum(payment.amount for payment in work_type.payments)
             for work_type in project.work_types
         )
         
         # 予算残額を計算
-        project.remaining_budget = project.budget_amount - total_payments
+        project.remaining_budget = project.current_budget - total_payments
         
         # 利益額を計算（請負金額 - 予算額）
         project.profit = project.contract_amount - total_payments
@@ -154,6 +210,9 @@ def index():
             project.profit_rate = (project.profit / project.contract_amount) * 100
         else:
             project.profit_rate = 0
+        
+        # プロパティを使用して値を取得（代入はしない）
+        project.budget_diff = project.budget_difference
     
     return render_template('index.html', projects=projects)
 
@@ -197,6 +256,19 @@ def edit_project(id):
 @app.route('/projects/<int:project_id>/work_types')
 def work_type_list(project_id):
     project = Project.query.get_or_404(project_id)
+    
+    # 全工種を取得（フィルタリング前）
+    all_work_types = WorkType.query.filter_by(project_id=project_id).all()
+    
+    # 契約時現場管理費を計算（61-で始まる工種の合計）
+    site_management_cost = sum(
+        work_type.budget_amount 
+        for work_type in all_work_types 
+        if work_type.work_code.startswith('61-')
+    )
+    
+    # 契約時一般管理費を計算（請負金額 - 契約時実行予算額）
+    general_management_cost = project.contract_amount - project.budget_amount
     
     # 検索パラメータを取得
     search_code = request.args.get('search_code', '')
@@ -250,7 +322,9 @@ def work_type_list(project_id):
                          work_type_codes=WORK_TYPE_CODES,
                          contractors=contractors,
                          search_code=search_code,
-                         search_contractor=search_contractor)
+                         search_contractor=search_contractor,
+                         site_management_cost=site_management_cost,
+                         general_management_cost=general_management_cost)
 
 # 工種コードの定義
 WORK_TYPE_CODES = [
@@ -315,6 +389,19 @@ WORK_TYPE_CODES = [
     ('46-01', '建築一式工事'),
     ('46-02', '許認可代願料'),
     ('46-10', 'その他工事'),
+    ('61-01', '管理給与'),
+    ('61-02', '共通給与'),
+    ('61-03', '雑給与'),
+    ('61-04', '建設業退職金共済掛金'),
+    ('61-06', '油脂費'),
+    ('61-10', '法定福利費（労災保険）'),
+    ('61-15', '事務用品費'),
+    ('61-16', '通信交通費'),
+    ('61-18', '租税公課（印紙）'),
+    ('61-20', '保険料（工事保険）'),
+    ('61-22', '福利厚生費（被服・薬品）'),
+    ('61-25', '設計費（施工図書）'),
+    ('61-30', '雑費（打ち合わせ・式典）'),
 ]
 
 @app.route('/add_work_type/<int:project_id>', methods=['GET', 'POST'])
@@ -673,6 +760,61 @@ def progress_payment(work_type_id):
                          previous_progress=previous_progress,
                          total_progress_amount=total_progress_amount,
                          current_year=datetime.now().year)
+
+@app.route('/work_type/<int:work_type_id>/profit', methods=['GET', 'POST'])
+def profit_entry(work_type_id):
+    work_type = WorkType.query.get_or_404(work_type_id)
+    
+    if request.method == 'POST':
+        # 利益計上として支払いを登録
+        payment = Payment(
+            work_type_id=work_type_id,
+            year=datetime.now().year,  # 現在の年を設定
+            month=datetime.now().month,  # 現在の月を設定
+            contractor='利益計上',
+            description=request.form['description'],
+            payment_type='利益計上',
+            amount=int(request.form['amount']),
+            is_profit=True
+        )
+        
+        db.session.add(payment)
+        work_type.calculate_remaining_amount()
+        db.session.commit()
+        
+        flash('利益計上を登録しました')
+        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    
+    return render_template('profit_entry.html', work_type=work_type)
+
+@app.route('/work_type/<int:work_type_id>/profit/edit', methods=['GET', 'POST'])
+def edit_profit(work_type_id):
+    work_type = WorkType.query.get_or_404(work_type_id)
+    
+    # 利益計上の支払いを取得
+    profit_payment = Payment.query.filter_by(
+        work_type_id=work_type_id,
+        is_profit=True
+    ).first()
+    
+    if not profit_payment:
+        flash('利益計上データが見つかりません')
+        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    
+    if request.method == 'POST':
+        profit_payment.amount = int(request.form['amount'])
+        profit_payment.description = request.form['description']
+        
+        db.session.commit()
+        work_type.calculate_remaining_amount()
+        db.session.commit()
+        
+        flash('利益計上を更新しました')
+        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    
+    return render_template('edit_profit.html', 
+                         work_type=work_type,
+                         profit_payment=profit_payment)
 
 @app.cli.command('reset-db')
 def reset_db():

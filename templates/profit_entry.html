@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>利益計上登録 - {{ work_type.work_name }}</h2>
+
+<form method="POST">
+    <div class="mb-3">
+        <label for="amount" class="form-label">利益計上額</label>
+        <input type="number" class="form-control" id="amount" name="amount" required>
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">備考</label>
+        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">登録</button>
+    <a href="{{ url_for('work_type_list', project_id=work_type.project_id) }}" class="btn btn-secondary">キャンセル</a>
+</form>
+{% endblock %} 

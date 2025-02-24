@@ -3,6 +3,67 @@
 {% block content %}
 <h2>工種一覧 - {{ project.project_name }}</h2>
 
+<!-- 予算情報 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h5 class="card-title">契約時実行予算額</h5>
+                <p class="card-text h4">{{ project.budget_amount|format_currency }}</p>
+                <h5 class="card-title mt-4">実行予算額</h5>
+                <p class="card-text h4">{{ (work_types|sum(attribute='budget_amount')|float)|format_currency }}</p>
+                <small class="text-muted">※支払い合計＋残額</small>
+            </div>
+            <div class="col-md-4">
+                <h5 class="card-title">契約時現場管理費</h5>
+                <p class="card-text h4">
+                    {{ site_management_cost|format_currency }}
+                    <small class="text-muted">
+                        ({{ "%.1f"|format((site_management_cost / project.budget_amount * 100)|float) }}%)
+                    </small>
+                </p>
+                <h5 class="card-title mt-4">実行現場管理費</h5>
+                {% set current_site_management = namespace(total=0, payments=0, remaining=0) %}
+                {% for work_type in work_types %}
+                    {% if work_type.work_code|starts_with('61-') %}
+                        {% set current_site_management.total = current_site_management.total + work_type.budget_amount %}
+                        {% set payments = work_type.budget_amount - work_type.remaining_amount - work_type.profit_amount %}
+                        {% set current_site_management.payments = current_site_management.payments + payments %}
+                        {% set current_site_management.remaining = current_site_management.remaining + work_type.remaining_amount %}
+                    {% endif %}
+                {% endfor %}
+                {% set total_site_management = current_site_management.payments + current_site_management.remaining %}
+                <p class="card-text h4 {% if total_site_management > site_management_cost %}text-danger{% endif %}">
+                    {{ total_site_management|format_currency }}
+                    <small class="{% if total_site_management > site_management_cost %}text-danger{% else %}text-muted{% endif %}">
+                        ({{ "%.1f"|format((total_site_management / project.budget_amount * 100)|float) }}%)
+                    </small>
+                </p>
+                <small class="text-muted">※工種コード61-で始まる項目の支払合計＋残額</small>
+            </div>
+            <div class="col-md-4">
+                <h5 class="card-title">契約時一般管理費</h5>
+                <p class="card-text h4">
+                    {{ general_management_cost|format_currency }}
+                    <small class="text-muted">
+                        ({{ "%.1f"|format((general_management_cost / project.contract_amount * 100)|float) }}%)
+                    </small>
+                </p>
+                <h5 class="card-title mt-4">実行一般管理費</h5>
+                {% set current_total_budget = work_types|sum(attribute='budget_amount')|float %}
+                {% set current_general_management = project.contract_amount - current_total_budget %}
+                <p class="card-text h4 {% if current_general_management < general_management_cost %}text-danger{% endif %}">
+                    {{ current_general_management|format_currency }}
+                    <small class="{% if current_general_management < general_management_cost %}text-danger{% else %}text-muted{% endif %}">
+                        ({{ "%.1f"|format((current_general_management / project.contract_amount * 100)|float) }}%)
+                    </small>
+                </p>
+                <small class="text-muted">※請負金額 - 実行予算額</small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 検索フォーム -->
 <form method="get" class="mb-4">
     <div class="row g-3">
@@ -48,8 +109,11 @@
                 <th>工種コード</th>
                 <th>工種名</th>
                 <th>予算額</th>
-                <th>支払済額</th>
+                <th>請負合計</th>
+                <th>請負外合計</th>
+                <th>支払済合計</th>
                 <th>残額</th>
+                <th>利益計上額</th>
                 <th>操作</th>
             </tr>
         </thead>
@@ -59,8 +123,31 @@
                 <td>{{ work_type.work_code }}</td>
                 <td>{{ work_type.work_name }}</td>
                 <td>{{ work_type.budget_amount|format_currency }}</td>
-                <td>{{ (work_type.budget_amount - work_type.remaining_amount)|format_currency }}</td>
-                <td>{{ work_type.remaining_amount|format_currency }}</td>
+                <td>{{ work_type.contract_total|format_currency }}</td>
+                <td>
+                    {{ work_type.non_contract_total|format_currency }}
+                    {% if work_type.non_contract_total > 0 %}
+                    <button class="btn btn-sm btn-outline-info ms-2" type="button" 
+                            data-bs-toggle="collapse" data-bs-target="#monthly-details-{{ work_type.id }}">
+                        詳細
+                    </button>
+                    {% endif %}
+                </td>
+                <td>{{ (work_type.budget_amount - work_type.remaining_amount - work_type.profit_amount)|format_currency }}</td>
+                <td class="{% if work_type.remaining_amount < 0 %}text-danger{% endif %}">
+                    {{ work_type.remaining_amount|format_currency }}
+                </td>
+                <td>
+                    {{ work_type.profit_amount|format_currency }}
+                    <div class="btn-group ms-2">
+                        <a href="{{ url_for('profit_entry', work_type_id=work_type.id) }}" 
+                           class="btn btn-sm btn-outline-success">利益計上</a>
+                        {% if work_type.profit_amount > 0 %}
+                        <a href="{{ url_for('edit_profit', work_type_id=work_type.id) }}" 
+                           class="btn btn-sm btn-outline-secondary">編集</a>
+                        {% endif %}
+                    </div>
+                </td>
                 <td>
                     <div class="btn-group">
                         <a href="{{ url_for('payment', work_type_id=work_type.id) }}" class="btn btn-primary btn-sm">支払登録</a>
@@ -68,6 +155,36 @@
                     </div>
                 </td>
             </tr>
+            <!-- 月別請負外支払い詳細 -->
+            {% if work_type.non_contract_total > 0 %}
+            <tr>
+                <td colspan="8" class="p-0">
+                    <div class="collapse" id="monthly-details-{{ work_type.id }}">
+                        <div class="card card-body m-2">
+                            <h6 class="card-title">{{ work_type.work_name }} - 月別請負外支払い</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>年月</th>
+                                            <th>金額</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for month, amount in work_type.get_monthly_non_contract_totals() %}
+                                        <tr>
+                                            <td>{{ month }}</td>
+                                            <td>{{ amount|format_currency }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
             <!-- 支払いリスト -->
             <tr>
                 <td colspan="6">
@@ -180,6 +297,18 @@
             </tr>
             {% endfor %}
         </tbody>
+        <tfoot>
+            <tr class="table-info">
+                <td colspan="2">合計</td>
+                <td>{{ work_types|sum(attribute='budget_amount')|format_currency }}</td>
+                <td>{{ work_types|sum(attribute='contract_total')|format_currency }}</td>
+                <td>{{ work_types|sum(attribute='non_contract_total')|format_currency }}</td>
+                <td>{{ work_types|sum(attribute='budget_amount')|subtract(work_types|sum(attribute='remaining_amount'))|format_currency }}</td>
+                <td>{{ work_types|sum(attribute='remaining_amount')|format_currency }}</td>
+                <td>{{ work_types|sum(attribute='profit_amount')|format_currency }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
 </div>
 
