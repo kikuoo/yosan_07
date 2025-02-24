@@ -8,6 +8,7 @@ import locale
 from flask.cli import with_appcontext
 import shutil
 import os
+from sqlalchemy import create_engine, text
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -54,8 +55,8 @@ class Project(db.Model):
     project_name = db.Column(db.String(200), nullable=False)
     contract_amount = db.Column(db.Integer, nullable=False)  # 請負金額
     budget_amount = db.Column(db.Integer, nullable=False)    # 当初実行予算額
-    current_budget = db.Column(db.Integer)                   # 実行予算額（変更後）
-    target_management_rate = db.Column(db.Float, default=0)  # 目標一般管理費率（％）
+    current_budget_amount = db.Column(db.Integer)           # カラム名を変更
+    target_management_rate = db.Column(db.Float, nullable=False, default=0.0)  # デフォルト値を0.0に設定
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     
@@ -72,8 +73,8 @@ class Project(db.Model):
     @property
     def current_profit_rate(self):
         """現在の利益率を計算"""
-        if self.contract_amount > 0 and self.current_budget:
-            return ((self.contract_amount - self.current_budget) / self.contract_amount) * 100
+        if self.contract_amount > 0 and self.current_budget_amount:
+            return ((self.contract_amount - self.current_budget_amount) / self.contract_amount) * 100
         return self.initial_profit_rate
 
     @property
@@ -96,10 +97,15 @@ class Project(db.Model):
         # 工種がある場合は工種合計、ない場合は当初予算を返す
         return total_work_type_budget if total_work_type_budget > 0 else self.budget_amount
 
+    @current_budget.setter
+    def current_budget(self, value):
+        """現在の実行予算額を設定"""
+        self.current_budget_amount = value
+
     @property
     def target_management_cost(self):
         """目標一般管理費を計算"""
-        if self.target_management_rate > 0:
+        if self.target_management_rate is not None and self.target_management_rate > 0:
             base_management = self.contract_amount - self.budget_amount
             return base_management * (1 + (self.target_management_rate / 100))
         return self.contract_amount - self.budget_amount
@@ -107,6 +113,8 @@ class Project(db.Model):
     @property
     def target_management_profit(self):
         """目標一般管理費の利益アップ額を計算"""
+        if self.target_management_rate is None or self.target_management_rate <= 0:
+            return 0
         base_management = self.contract_amount - self.budget_amount
         return self.target_management_cost - base_management
 
@@ -235,14 +243,17 @@ def index():
 def add_project():
     if request.method == 'POST':
         budget_amount = int(request.form['budget_amount'])
-        current_budget = int(request.form.get('current_budget', 0)) or budget_amount
+        
+        # current_budgetの処理を修正
+        current_budget_str = request.form.get('current_budget', '')
+        current_budget = int(current_budget_str) if current_budget_str.strip() else budget_amount
         
         project = Project(
             project_code=request.form['project_code'],
             project_name=request.form['project_name'],
             contract_amount=int(request.form['contract_amount']),
             budget_amount=budget_amount,
-            current_budget=current_budget
+            current_budget_amount=current_budget  # カラム名を変更
         )
         db.session.add(project)
         db.session.commit()
@@ -260,7 +271,9 @@ def edit_project(id):
         project.project_name = request.form['project_name']
         project.contract_amount = int(request.form['contract_amount'])
         project.budget_amount = int(request.form['budget_amount'])
-        project.current_budget = int(request.form.get('current_budget', 0)) or project.budget_amount
+        
+        current_budget_str = request.form.get('current_budget', '')
+        project.current_budget_amount = int(current_budget_str) if current_budget_str.strip() else project.budget_amount
         
         db.session.commit()
         flash('物件を更新しました')
@@ -353,7 +366,7 @@ WORK_TYPE_CODES = [
     ('42-02', '地業工事'),
     ('42-03', '鉄筋工事'),
     ('42-04', '型枠工事'),
-    ('42-05', 'コンクリート工事'),
+    ('42-05', 'ｺﾝｸﾘｰﾄ工事'),
     ('42-06', '鉄骨工事'),
     ('42-07', '組積ALC工事'),
     ('42-08', '防水工事'),
@@ -398,15 +411,15 @@ WORK_TYPE_CODES = [
     ('44-90', '設備工事一式'),
     ('44-91', '諸経費'),
     ('45-01', '追加変更工事'),
-    ('45-02', '追加変更工事2'),
+    ('45-02', '追加変更工事２'),
     ('45-10', 'その他工事'),
     ('45-90', '追加変更一式'),
     ('46-01', '建築一式工事'),
-    ('46-02', '許認可代願料'),
+    ('46-02', '許認可代顔料'),
     ('46-10', 'その他工事'),
     ('61-01', '管理給与'),
     ('61-02', '共通給与'),
-    ('61-03', '雑給与'),
+    ('61-03', '舗装給与'),
     ('61-04', '建設業退職金共済掛金'),
     ('61-06', '油脂費'),
     ('61-10', '法定福利費（労災保険）'),
@@ -415,7 +428,7 @@ WORK_TYPE_CODES = [
     ('61-18', '租税公課（印紙）'),
     ('61-20', '保険料（工事保険）'),
     ('61-22', '福利厚生費（被服・薬品）'),
-    ('61-25', '設計費（施工図書）'),
+    ('61-25', '設計費（施工図費）'),
     ('61-30', '雑費（打ち合わせ・式典）'),
 ]
 
@@ -845,8 +858,20 @@ def set_target_management(project_id):
 
 @app.cli.command('reset-db')
 def reset_db():
-    # 既存のDBをドロップ
-    db.drop_all()
+    """データベースを完全にリセットする"""
+    # MySQLに直接接続してデータベースを再作成
+    engine = create_engine('mysql+pymysql://root:kikuoo@localhost/')
+    conn = engine.connect()
+    
+    try:
+        # トランザクションをコミット
+        conn.execute(text('COMMIT'))
+        
+        # データベースを削除して再作成
+        conn.execute(text('DROP DATABASE IF EXISTS yosan_db'))
+        conn.execute(text('CREATE DATABASE yosan_db'))
+    finally:
+        conn.close()
     
     # テーブルを再作成
     db.create_all()
@@ -857,8 +882,10 @@ def reset_db():
     
     # マイグレーションを初期化
     os.system('flask db init')
-    os.system('flask db migrate')
+    os.system('flask db migrate -m "Initial migration"')
     os.system('flask db upgrade')
+    
+    print('Database has been reset successfully.')
 
 if __name__ == '__main__':
     app.run(debug=True) 
