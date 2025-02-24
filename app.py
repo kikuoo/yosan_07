@@ -282,6 +282,7 @@ def edit_project(id):
     return render_template('edit_project.html', project=project)
 
 @app.route('/projects/<int:project_id>/work_types')
+@login_required
 def work_type_list(project_id):
     project = Project.query.get_or_404(project_id)
     
@@ -352,7 +353,8 @@ def work_type_list(project_id):
                          search_code=search_code,
                          search_contractor=search_contractor,
                          site_management_cost=site_management_cost,
-                         general_management_cost=general_management_cost)
+                         general_management_cost=general_management_cost,
+                         now=datetime.now())
 
 # 工種コードの定義
 WORK_TYPE_CODES = [

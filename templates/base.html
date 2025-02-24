@@ -16,9 +16,21 @@
             background-color: #fff3cd !important;
         }
         
+        .print-only {
+            display: none;
+        }
+        
         @media print {
             .no-print {
                 display: none !important;
+            }
+            
+            .print-only {
+                display: block !important;
+            }
+            
+            .print-page-break {
+                page-break-after: always;
             }
             
             .navbar,
