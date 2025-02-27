@@ -1,3 +1,4 @@
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^(.*)$ /index.cgi/$1 [QSA,L]
+from wsgiref.handlers import CGIHandler
+from app import app
+
+CGIHandler().run(app)

@@ -13,6 +13,9 @@ from sqlalchemy import create_engine, text
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
+# アプリケーションのURLプレフィックスを設定
+app.config['APPLICATION_ROOT'] = '/yosan'
+
 # SQLAlchemy設定
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:kikuoo@localhost/yosan_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
