@@ -210,34 +210,35 @@ def load_user(id):
     return User.query.get(int(id))
 
 @app.route('/')
-@login_required
 def index():
-    projects = Project.query.order_by(Project.created_at.desc()).all()
-    
-    # 各プロジェクトの予算関連情報を計算
-    for project in projects:
-        # 全工種の支払い合計を計算（支払済額）
-        total_payments = sum(
-            sum(payment.amount for payment in work_type.payments)
-            for work_type in project.work_types
-        )
+    if current_user.is_authenticated:
+        projects = Project.query.order_by(Project.created_at.desc()).all()
         
-        # 予算残額を計算
-        project.remaining_budget = project.current_budget - total_payments
+        # 各プロジェクトの予算関連情報を計算
+        for project in projects:
+            # 全工種の支払い合計を計算（支払済額）
+            total_payments = sum(
+                sum(payment.amount for payment in work_type.payments)
+                for work_type in project.work_types
+            )
+            
+            # 予算残額を計算
+            project.remaining_budget = project.current_budget - total_payments
+            
+            # 利益額を計算（請負金額 - 予算額）
+            project.profit = project.contract_amount - total_payments
+            
+            # 利益率を計算（利益額 ÷ 請負金額 × 100）
+            if project.contract_amount > 0:
+                project.profit_rate = (project.profit / project.contract_amount) * 100
+            else:
+                project.profit_rate = 0
+            
+            # プロパティを使用して値を取得（代入はしない）
+            project.budget_diff = project.budget_difference
         
-        # 利益額を計算（請負金額 - 予算額）
-        project.profit = project.contract_amount - total_payments
-        
-        # 利益率を計算（利益額 ÷ 請負金額 × 100）
-        if project.contract_amount > 0:
-            project.profit_rate = (project.profit / project.contract_amount) * 100
-        else:
-            project.profit_rate = 0
-        
-        # プロパティを使用して値を取得（代入はしない）
-        project.budget_diff = project.budget_difference
-    
-    return render_template('index.html', projects=projects)
+        return render_template('index.html', projects=projects)
+    return render_template('index.html')
 
 @app.route('/add', methods=['GET', 'POST'])
 def add_project():
