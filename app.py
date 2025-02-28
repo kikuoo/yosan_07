@@ -923,5 +923,26 @@ def reset_db():
     
     print('Database has been reset successfully.')
 
+@app.route('/init_db')
+def initialize_database():
+    try:
+        with app.app_context():
+            db.create_all()
+            
+            # 初期管理者ユーザーの作成
+            if not User.query.filter_by(username='admin').first():
+                admin = User(
+                    username='admin',
+                    email='admin@example.com',
+                    is_admin=True
+                )
+                admin.set_password('initial_password')
+                db.session.add(admin)
+                db.session.commit()
+            
+            return 'データベースが初期化されました'
+    except Exception as e:
+        return f'エラーが発生しました: {str(e)}'
+
 if __name__ == '__main__':
     app.run(debug=True) 
