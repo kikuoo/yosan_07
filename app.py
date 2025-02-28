@@ -34,14 +34,23 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'ログインしてください。'
 
-# 日本語ロケールを設定
-locale.setlocale(locale.LC_ALL, 'ja_JP.UTF-8')
+# 日本語ロケールを設定（エラー処理を追加）
+try:
+    locale.setlocale(locale.LC_ALL, 'ja_JP.UTF-8')
+except locale.Error:
+    try:
+        locale.setlocale(locale.LC_ALL, 'Japanese_Japan.932')
+    except locale.Error:
+        locale.setlocale(locale.LC_ALL, '')  # システムのデフォルトロケールを使用
 
 def format_currency(value):
     """通貨を日本円形式でフォーマットする"""
     if value is None:
         return '¥0'
-    return f'¥{value:,}'
+    try:
+        return f'¥{value:,}'
+    except:
+        return f'¥{value}'
 
 def subtract(value1, value2):
     """2つの値の差を計算するフィルター"""
@@ -178,7 +187,6 @@ class WorkType(db.Model):
         sorted_totals = sorted(
             monthly_totals.items(),
             key=lambda x: (int(x[0].split('年')[0]), int(x[0].split('年')[1].split('月')[0]))
-        )
         return sorted_totals
 
 class Payment(db.Model):
