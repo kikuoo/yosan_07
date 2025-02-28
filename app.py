@@ -23,8 +23,13 @@ app.config['APPLICATION_ROOT'] = '/yosan'
 app.config['SESSION_COOKIE_PATH'] = '/yosan'
 app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
 
+# データベースURLの設定
+DATABASE_URL = os.getenv('DATABASE_URL')
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # SQLAlchemy設定
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql+pymysql://root:kikuoo@localhost/yosan_db')
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -187,7 +192,6 @@ class WorkType(db.Model):
         sorted_totals = sorted(
             monthly_totals.items(),
             key=lambda x: (int(x[0].split('年')[0]), int(x[0].split('年')[1].split('月')[0]))
-        )
         return sorted_totals
 
 class Payment(db.Model):
