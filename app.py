@@ -15,6 +15,9 @@ app.secret_key = 'your_secret_key'
 
 # アプリケーションのURLプレフィックスを設定
 app.config['APPLICATION_ROOT'] = '/yosan'
+# セッション設定を追加
+app.config['SESSION_COOKIE_PATH'] = '/yosan'
+app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
 
 # SQLAlchemy設定
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:kikuoo@localhost/yosan_db'
@@ -633,7 +636,11 @@ def login():
         user = User.query.filter_by(username=request.form['username']).first()
         if user and user.check_password(request.form['password']):
             login_user(user)
-            return redirect(url_for('index'))
+            # next_pageの取得とバリデーション
+            next_page = request.args.get('next')
+            if not next_page or not next_page.startswith('/'):
+                next_page = url_for('index')
+            return redirect(next_page)
         flash('ユーザー名またはパスワードが正しくありません')
     return render_template('login.html')
 
