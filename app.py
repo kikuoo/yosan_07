@@ -187,6 +187,7 @@ class WorkType(db.Model):
         sorted_totals = sorted(
             monthly_totals.items(),
             key=lambda x: (int(x[0].split('年')[0]), int(x[0].split('年')[1].split('月')[0]))
+        )
         return sorted_totals
 
 class Payment(db.Model):
