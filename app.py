@@ -699,8 +699,10 @@ def register():
             )
             user.set_password(request.form['password'])
             
-            db.session.add(user)
-            db.session.commit()
+            # データベースに保存
+            with app.app_context():
+                db.session.add(user)
+                db.session.commit()
             
             flash('ユーザー登録が完了しました')
             return redirect(url_for('login'))
