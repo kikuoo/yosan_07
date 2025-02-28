@@ -23,7 +23,7 @@
                             {% endif %}
                         {% endwith %}
                         
-                        <form method="POST" action="{{ url_for('login') }}">
+                        <form method="POST" action="{{ url_for('login', _external=True) }}">
                             <div class="mb-3">
                                 <label for="username" class="form-label">ユーザー名</label>
                                 <input type="text" class="form-control" id="username" name="username" required>
@@ -34,7 +34,7 @@
                             </div>
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">ログイン</button>
-                                <a href="{{ url_for('register') }}" class="btn btn-outline-secondary">新規登録</a>
+                                <a href="{{ url_for('register', _external=True) }}" class="btn btn-outline-secondary">新規登録</a>
                             </div>
                         </form>
                     </div>

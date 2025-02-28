@@ -23,6 +23,16 @@ app.config['APPLICATION_ROOT'] = '/yosan'
 app.config['SESSION_COOKIE_PATH'] = '/yosan'
 app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
 
+# 以下を追加
+if os.getenv('FLASK_ENV') == 'production':
+    # 本番環境の設定
+    app.config['APPLICATION_ROOT'] = '/yosan'
+    app.config['SESSION_COOKIE_PATH'] = '/yosan'
+else:
+    # 開発環境の設定
+    app.config['APPLICATION_ROOT'] = '/'
+    app.config['SESSION_COOKIE_PATH'] = '/'
+
 # データベースURLの設定
 DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
