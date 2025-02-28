@@ -9,9 +9,13 @@ from flask.cli import with_appcontext
 import shutil
 import os
 from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
+
+# 環境変数の読み込み
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
 
 # アプリケーションのURLプレフィックスを設定
 app.config['APPLICATION_ROOT'] = '/yosan'
@@ -20,7 +24,7 @@ app.config['SESSION_COOKIE_PATH'] = '/yosan'
 app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
 
 # SQLAlchemy設定
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:kikuoo@localhost/yosan_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql+pymysql://root:kikuoo@localhost/yosan_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
