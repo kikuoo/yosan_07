@@ -26,14 +26,15 @@ app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
 # データベースURLの設定
 DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL is None:
-    # デフォルトのデータベースURL
-    DATABASE_URL = "sqlite:///yosan.db"
+    raise ValueError("DATABASE_URL environment variable is not set")
 elif DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # SQLAlchemy設定
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# データベースの初期化
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
