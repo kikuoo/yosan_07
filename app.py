@@ -658,15 +658,34 @@ def delete_payment(id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form['username']).first()
-        if user and user.check_password(request.form['password']):
-            login_user(user)
-            # next_pageの取得とバリデーション
-            next_page = request.args.get('next')
-            if not next_page or not next_page.startswith('/'):
-                next_page = url_for('index')
-            return redirect(next_page)
-        flash('ユーザー名またはパスワードが正しくありません')
+        try:
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            if not username or not password:
+                flash('ユーザー名とパスワードを入力してください')
+                return redirect(url_for('login'))
+            
+            user = User.query.filter_by(username=username).first()
+            
+            if user and user.check_password(password):
+                login_user(user)
+                flash('ログインしました')
+                
+                # next_pageの取得とバリデーション
+                next_page = request.args.get('next')
+                if not next_page or not next_page.startswith('/'):
+                    next_page = url_for('index')
+                return redirect(next_page)
+            
+            flash('ユーザー名またはパスワードが正しくありません')
+            return redirect(url_for('login'))
+            
+        except Exception as e:
+            print(f"ログインエラー: {str(e)}")  # エラーをログに出力
+            flash('ログイン中にエラーが発生しました')
+            return redirect(url_for('login'))
+    
     return render_template('login.html')
 
 @app.route('/logout')
