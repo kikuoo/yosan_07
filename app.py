@@ -821,69 +821,69 @@ def delete_user(id):
     flash('ユーザーを削除しました')
     return redirect(url_for('user_list'))
 
-@app.route('/work_type/<int:work_type_id>/progress_payment', methods=['GET', 'POST'])
-def progress_payment(work_type_id):
+@app.route('/progress_payment/<int:work_type_id>/<int:contract_id>', methods=['GET', 'POST'])
+def progress_payment(work_type_id, contract_id):
     work_type = WorkType.query.get_or_404(work_type_id)
+    contract = Payment.query.get_or_404(contract_id)
     
-    # リクエストから請負契約IDを取得
-    contract_id = request.args.get('contract_id')
-    if not contract_id:
-        flash('請負契約が指定されていません')
-        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    # 現在の年月を取得
+    current_year = datetime.now().year
+    current_month = datetime.now().month
     
-    # 指定された請負契約を取得
-    contract_payment = Payment.query.get_or_404(contract_id)
-    if contract_payment.work_type_id != work_type_id or contract_payment.payment_type != '請負':
-        flash('無効な請負契約です')
-        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+    # 年の選択肢を生成（現在年から5年分）
+    years = [(str(year), str(year)) for year in range(current_year - 2, current_year + 4)]
     
-    # この請負契約に関連する出来高支払いを取得
-    progress_payments = Payment.query.filter_by(
-        work_type_id=work_type_id,
-        payment_type='出来高',
-        contractor=contract_payment.contractor,
-        contract_id=contract_payment.id  # 請負契約IDでフィルタリング
-    ).order_by(Payment.year.desc(), Payment.month.desc()).all()
-    
-    # 前回までの出来高を取得
-    last_progress = progress_payments[0] if progress_payments else None
-    previous_progress = last_progress.current_progress if last_progress else 0
-    
-    # 出来高支払い合計額を計算
-    total_progress_amount = sum(payment.amount for payment in progress_payments)
+    # 月の選択肢を生成（1-12月）
+    months = [(str(month), f"{month}月") for month in range(1, 13)]
     
     if request.method == 'POST':
-        amount = int(request.form['amount'])
-        progress_rate = (amount / contract_payment.amount) * 100
-        
-        payment = Payment(
-            work_type_id=work_type_id,
-            year=int(request.form['year']),
-            month=int(request.form['month']),
-            contractor=contract_payment.contractor,
-            description=request.form['description'],
-            payment_type='出来高',
-            amount=amount,
-            is_progress_payment=True,
-            progress_rate=progress_rate,
-            previous_progress=previous_progress,
-            current_progress=previous_progress + progress_rate,
-            contract_id=contract_payment.id  # 請負契約IDを保存
-        )
-        
-        db.session.add(payment)
-        work_type.calculate_remaining_amount()
-        db.session.commit()
-        
-        flash('出来高払いを登録しました')
-        return redirect(url_for('work_type_list', project_id=work_type.project_id))
+        try:
+            # 出来高支払い情報の作成
+            payment = Payment(
+                work_type_id=work_type_id,
+                year=int(request.form['year']),
+                month=int(request.form['month']),
+                contractor=contract.contractor,
+                description=request.form['description'],
+                payment_type='出来高',
+                amount=int(request.form['amount']),
+                is_progress_payment=True,
+                progress_rate=float(request.form['progress_rate']),
+                contract_id=contract_id
+            )
+            
+            # 前回までの出来高を取得
+            previous_payments = Payment.query.filter(
+                Payment.work_type_id == work_type_id,
+                Payment.is_progress_payment == True,
+                Payment.contractor == contract.contractor
+            ).order_by(Payment.id.desc()).first()
+            
+            payment.previous_progress = previous_payments.current_progress if previous_payments else 0
+            payment.current_progress = payment.previous_progress + payment.progress_rate
+            
+            db.session.add(payment)
+            db.session.commit()
+            
+            # 工種の残額を再計算
+            work_type.calculate_remaining_amount()
+            db.session.commit()
+            
+            flash('出来高支払い情報を登録しました')
+            return redirect(url_for('work_type_list', project_id=work_type.project_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'エラーが発生しました: {str(e)}')
+            return redirect(url_for('progress_payment', work_type_id=work_type_id, contract_id=contract_id))
     
-    return render_template('progress_payment.html', 
+    return render_template('progress_payment.html',
                          work_type=work_type,
-                         contract_payment=contract_payment,
-                         previous_progress=previous_progress,
-                         total_progress_amount=total_progress_amount,
-                         current_year=datetime.now().year)
+                         contract=contract,
+                         years=years,
+                         months=months,
+                         current_year=str(current_year),
+                         current_month=str(current_month))
 
 @app.route('/work_type/<int:work_type_id>/profit', methods=['GET', 'POST'])
 def profit_entry(work_type_id):
