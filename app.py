@@ -22,17 +22,15 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
 
 # セッション設定
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # セッションの有効期限を30日に設定
-app.config['SESSION_COOKIE_SECURE'] = True if FLASK_ENV == 'production' else False  # 本番環境のみHTTPS必須
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_COOKIE_SECURE'] = True if FLASK_ENV == 'production' else False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # 環境に応じた設定
 if FLASK_ENV == 'production':
-    app.config['APPLICATION_ROOT'] = '/'  # ルートパスに変更
+    app.config['APPLICATION_ROOT'] = '/'
     app.config['SESSION_COOKIE_PATH'] = '/'
-    app.config['SESSION_COOKIE_DOMAIN'] = '.onrender.com'  # ドメインを設定
-    app.config['SERVER_NAME'] = 'yosan-07.onrender.com'  # あなたのアプリのドメインに変更
 else:
     app.config['APPLICATION_ROOT'] = '/'
     app.config['SESSION_COOKIE_PATH'] = '/'
