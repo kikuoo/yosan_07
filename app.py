@@ -183,18 +183,21 @@ class WorkType(db.Model):
 
     @property
     def total_payments(self):
-        """支払い合計額を計算（利益計上を除く）"""
-        return sum(payment.amount for payment in self.payments if not payment.is_profit)
+        """支払い合計額を計算（利益計上と出来高を除く）"""
+        return sum(payment.amount for payment in self.payments 
+                  if not payment.is_profit and payment.payment_type != '出来高')
 
     @property
     def current_budget_amount(self):
-        """実行予算額を計算（支払い合計 + 予算残額 + 利益計上）"""
-        return self.total_payments + self.remaining_amount + self.profit_amount
+        """実行予算額を計算（支払い合計 + 予算残額）"""
+        return self.budget_amount  # 当初予算額をそのまま返す
 
     def calculate_remaining_amount(self):
         """予算残額を計算する。利益計上額を考慮"""
-        total_payments = sum(payment.amount for payment in self.payments if not payment.is_profit)
-        self.remaining_amount = self.budget_amount - total_payments - self.profit_amount
+        # 支払い合計（利益計上を除く）
+        total_payments = sum(payment.amount for payment in self.payments 
+                           if not payment.is_profit and payment.payment_type != '出来高')
+        self.remaining_amount = self.budget_amount - total_payments
         return self.remaining_amount
 
     @property
