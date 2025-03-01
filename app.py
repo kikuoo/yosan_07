@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, init, migrate, upgrade
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 import locale
@@ -14,24 +14,30 @@ from dotenv import load_dotenv
 # 環境変数の読み込み
 load_dotenv()
 
+# Flaskアプリケーションの設定
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
 
-# アプリケーションのURLプレフィックスを設定
-app.config['APPLICATION_ROOT'] = '/yosan'
-# セッション設定を追加
-app.config['SESSION_COOKIE_PATH'] = '/yosan'
-app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
+# セッション設定
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # セッションの有効期限を30日に設定
+app.config['SESSION_COOKIE_SECURE'] = True  # HTTPSでのみクッキーを送信
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # JavaScriptからのクッキーアクセスを防止
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF対策
 
-# 以下を追加
-if os.getenv('FLASK_ENV') == 'production':
-    # 本番環境の設定
+# 環境変数の設定
+FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+
+# 環境に応じた設定
+if FLASK_ENV == 'production':
     app.config['APPLICATION_ROOT'] = '/yosan'
     app.config['SESSION_COOKIE_PATH'] = '/yosan'
+    app.config['SESSION_COOKIE_DOMAIN'] = '.onrender.com'  # render.comのドメインを指定
 else:
-    # 開発環境の設定
     app.config['APPLICATION_ROOT'] = '/'
     app.config['SESSION_COOKIE_PATH'] = '/'
+    app.config['SESSION_COOKIE_SECURE'] = False  # 開発環境ではHTTPを許可
+
+app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
 
 # データベースURLの設定
 DATABASE_URL = os.getenv('DATABASE_URL')
@@ -55,6 +61,9 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'ログインしてください。'
+login_manager.refresh_view = 'login'  # セッション再認証時のビュー
+login_manager.needs_refresh_message = 'セッションが切れました。再度ログインしてください。'
+login_manager.session_protection = "strong"  # セッション保護を強化
 
 # 日本語ロケールを設定（エラー処理を追加）
 try:
@@ -209,7 +218,6 @@ class WorkType(db.Model):
         sorted_totals = sorted(
             monthly_totals.items(),
             key=lambda x: (int(x[0].split('年')[0]), int(x[0].split('年')[1].split('月')[0]))
-        )
         return sorted_totals
 
 class Payment(db.Model):
@@ -679,7 +687,10 @@ def login():
             user = User.query.filter_by(username=username).first()
             
             if user and user.check_password(password):
-                login_user(user)
+                # セッションを永続化
+                session.permanent = True
+                # ユーザーをログイン
+                login_user(user, remember=True)
                 flash('ログインしました')
                 
                 # next_pageの取得とバリデーション
@@ -692,7 +703,7 @@ def login():
             return redirect(url_for('login'))
             
         except Exception as e:
-            print(f"ログインエラー: {str(e)}")  # エラーをログに出力
+            print(f"ログインエラー: {str(e)}")
             flash('ログイン中にエラーが発生しました')
             return redirect(url_for('login'))
     
