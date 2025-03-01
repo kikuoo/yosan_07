@@ -20,22 +20,23 @@ app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
 
 # セッション設定
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # セッションの有効期限を30日に設定
-app.config['SESSION_COOKIE_SECURE'] = True  # HTTPSでのみクッキーを送信
-app.config['SESSION_COOKIE_HTTPONLY'] = True  # JavaScriptからのクッキーアクセスを防止
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF対策
+app.config['SESSION_COOKIE_SECURE'] = True if FLASK_ENV == 'production' else False  # 本番環境のみHTTPS必須
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # 環境変数の設定
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 
 # 環境に応じた設定
 if FLASK_ENV == 'production':
-    app.config['APPLICATION_ROOT'] = '/yosan'
-    app.config['SESSION_COOKIE_PATH'] = '/yosan'
-    app.config['SESSION_COOKIE_DOMAIN'] = '.onrender.com'  # render.comのドメインを指定
+    app.config['APPLICATION_ROOT'] = '/'  # ルートパスに変更
+    app.config['SESSION_COOKIE_PATH'] = '/'
+    app.config['SESSION_COOKIE_DOMAIN'] = '.onrender.com'  # ドメインを設定
+    app.config['SERVER_NAME'] = 'yosan-07.onrender.com'  # あなたのアプリのドメインに変更
 else:
     app.config['APPLICATION_ROOT'] = '/'
     app.config['SESSION_COOKIE_PATH'] = '/'
-    app.config['SESSION_COOKIE_SECURE'] = False  # 開発環境ではHTTPを許可
+    app.config['SESSION_COOKIE_SECURE'] = False
 
 app.config['SESSION_COOKIE_NAME'] = 'yosan_session'
 
@@ -856,7 +857,8 @@ def progress_payment(work_type_id, contract_id):
             previous_payments = Payment.query.filter(
                 Payment.work_type_id == work_type_id,
                 Payment.is_progress_payment == True,
-                Payment.contractor == contract.contractor
+                Payment.contractor == contract.contractor,
+                Payment.contract_id == contract_id  # 同じ契約に関連する支払いのみを取得
             ).order_by(Payment.id.desc()).first()
             
             payment.previous_progress = previous_payments.current_progress if previous_payments else 0
@@ -874,6 +876,7 @@ def progress_payment(work_type_id, contract_id):
             
         except Exception as e:
             db.session.rollback()
+            print(f"出来高支払いエラー: {str(e)}")  # エラーログを追加
             flash(f'エラーが発生しました: {str(e)}')
             return redirect(url_for('progress_payment', work_type_id=work_type_id, contract_id=contract_id))
     
