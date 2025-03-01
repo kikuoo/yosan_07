@@ -91,11 +91,11 @@
 </div>
 
 <!-- 検索フォーム -->
-<form method="get" class="mb-4 no-print">
+<form method="get" class="mb-4 no-print" id="searchForm">
     <div class="row g-3">
         <div class="col-md-4">
             <div class="input-group">
-                <select class="form-select" name="search_code">
+                <select class="form-select" name="search_code" id="workTypeSelect">
                     <option value="">全ての工種</option>
                     {% for code, name in work_type_codes %}
                     <option value="{{ code }}" {% if code == search_code %}selected{% endif %}>
@@ -331,20 +331,34 @@
 </div>
 
 <script>
-// ページ読み込み時にスクロール位置を復元
 document.addEventListener('DOMContentLoaded', function() {
+    // 工種選択のセレクトボックス
+    const workTypeSelect = document.getElementById('workTypeSelect');
+    
+    // 保存されたスクロール位置を復元
     let scrollPos = sessionStorage.getItem('scrollPosition');
     if (scrollPos) {
-        window.scrollTo(0, scrollPos);
+        window.scrollTo(0, parseInt(scrollPos));
         sessionStorage.removeItem('scrollPosition');
     }
-});
-
-// フォーム送信時にスクロール位置を保存
-document.querySelectorAll('form').forEach(form => {
-    form.addEventListener('submit', function() {
-        sessionStorage.setItem('scrollPosition', window.scrollY);
-    });
+    
+    // 保存された工種選択を復元
+    let savedWorkType = sessionStorage.getItem('selectedWorkType');
+    if (savedWorkType && workTypeSelect) {
+        workTypeSelect.value = savedWorkType;
+    }
+    
+    // 工種選択時の処理
+    if (workTypeSelect) {
+        workTypeSelect.addEventListener('change', function() {
+            // 現在の選択値を保存
+            sessionStorage.setItem('selectedWorkType', this.value);
+            // 現在のスクロール位置を保存
+            sessionStorage.setItem('scrollPosition', window.scrollY.toString());
+            // フォームを送信
+            document.getElementById('searchForm').submit();
+        });
+    }
 });
 </script>
 

@@ -6,20 +6,22 @@
 <form method="post">
     <div class="mb-3">
         <label for="year">年</label>
-        <select class="form-control" id="year" name="year" required>
-            <option value="">選択してください</option>
-            {% for value, label in years %}
-            <option value="{{ value }}">{{ label }}</option>
+        <select name="year" class="form-control" required>
+            {% for year_value, year_label in years %}
+                <option value="{{ year_value }}" {% if year_value == current_year %}selected{% endif %}>
+                    {{ year_label }}年
+                </option>
             {% endfor %}
         </select>
     </div>
 
     <div class="mb-3">
         <label for="month">月</label>
-        <select class="form-control" id="month" name="month" required>
-            <option value="">選択してください</option>
-            {% for value, label in months %}
-            <option value="{{ value }}">{{ label }}</option>
+        <select name="month" class="form-control" required>
+            {% for month_value, month_label in months %}
+                <option value="{{ month_value }}" {% if month_value == current_month %}selected{% endif %}>
+                    {{ month_label }}
+                </option>
             {% endfor %}
         </select>
     </div>
