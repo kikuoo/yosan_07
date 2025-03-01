@@ -1,12 +1,12 @@
+from app import app
 import os
 
-# render.comが提供するDATABASE_URLを使用
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# PostgreSQL接続設定
+database_url = os.getenv('DATABASE_URL')
 
-# 注意: render.comのURLは "postgres://" で始まりますが、
-# SQLAlchemyは "postgresql://" を期待するため、必要に応じて置換
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# render.comのPostgreSQLでは "postgres://" で始まるURLが提供されるため、
+# SQLAlchemyが期待する "postgresql://" に変換
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
-# SQLAlchemyの設定
-SQLALCHEMY_DATABASE_URI = DATABASE_URL 
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url 
