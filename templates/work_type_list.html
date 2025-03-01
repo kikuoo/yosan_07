@@ -148,10 +148,10 @@
             <tr class="bg-light-pink">
                 <td>{{ work_type.work_code }}</td>
                 <td>{{ work_type.work_name }}</td>
-                <td>{{ work_type.budget_amount|format_currency }}</td>
+                <td>{{ work_type.current_budget_amount|format_currency }}</td>
                 <td class="bg-success-light">{{ work_type.contract_total|format_currency }}</td>
                 <td class="bg-warning-light">{{ work_type.non_contract_total|format_currency }}</td>
-                <td>{{ (work_type.budget_amount - work_type.remaining_amount - work_type.profit_amount)|format_currency }}</td>
+                <td>{{ work_type.total_payments|format_currency }}</td>
                 <td>{{ work_type.remaining_amount|format_currency }}</td>
                 <td>{{ work_type.profit_amount|format_currency }}</td>
                 <td>

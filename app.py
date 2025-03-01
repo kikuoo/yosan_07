@@ -182,6 +182,22 @@ class WorkType(db.Model):
     payments = db.relationship('Payment', backref='work_type', lazy=True, cascade='all, delete-orphan')
 
     @property
+    def total_payments(self):
+        """支払い合計額を計算（利益計上を除く）"""
+        return sum(payment.amount for payment in self.payments if not payment.is_profit)
+
+    @property
+    def current_budget_amount(self):
+        """実行予算額を計算（支払い合計 + 予算残額 + 利益計上）"""
+        return self.total_payments + self.remaining_amount + self.profit_amount
+
+    def calculate_remaining_amount(self):
+        """予算残額を計算する。利益計上額を考慮"""
+        total_payments = sum(payment.amount for payment in self.payments if not payment.is_profit)
+        self.remaining_amount = self.budget_amount - total_payments - self.profit_amount
+        return self.remaining_amount
+
+    @property
     def contract_total(self):
         """請負支払いの合計金額を計算"""
         return sum(payment.amount for payment in self.payments if payment.payment_type == '請負')
@@ -195,12 +211,6 @@ class WorkType(db.Model):
     def profit_amount(self):
         """利益計上額の合計を計算"""
         return sum(payment.amount for payment in self.payments if payment.is_profit)
-
-    def calculate_remaining_amount(self):
-        """予算残額を計算する。利益計上額を考慮"""
-        total_payments = sum(payment.amount for payment in self.payments if not payment.is_profit)
-        self.remaining_amount = self.budget_amount - total_payments - self.profit_amount
-        return self.remaining_amount
 
     def get_monthly_non_contract_totals(self):
         """請負外支払いの月別合計を計算"""
