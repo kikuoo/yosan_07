@@ -522,6 +522,23 @@ def edit_work_type(id):
     
     return render_template('edit_work_type.html', work_type=work_type)
 
+@app.route('/add_payment/<int:work_type_id>', methods=['GET', 'POST'])
+def add_payment(work_type_id):
+    work_type = WorkType.query.get_or_404(work_type_id)
+    
+    # 現在の年月を取得
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    
+    if request.method == 'POST':
+        # 既存の POST 処理
+        pass
+    
+    return render_template('add_payment.html', 
+                         work_type=work_type,
+                         current_year=current_year,
+                         current_month=current_month)
+
 @app.route('/payment/<int:work_type_id>', methods=['GET', 'POST'])
 def payment(work_type_id):
     work_type = WorkType.query.get_or_404(work_type_id)
@@ -988,6 +1005,15 @@ def initialize_database():
             return 'データベースが初期化されました'
     except Exception as e:
         return f'エラーが発生しました: {str(e)}'
+
+@app.route('/toggle_profit/<int:payment_id>', methods=['POST'])
+@login_required
+def toggle_profit(payment_id):
+    payment = Payment.query.get_or_404(payment_id)
+    payment.is_profit = not payment.is_profit
+    db.session.commit()
+    flash('利益計上状態を更新しました')
+    return redirect(url_for('work_type_list', project_id=payment.work_type.project_id))
 
 if __name__ == '__main__':
     app.run(debug=True) 

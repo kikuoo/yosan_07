@@ -330,4 +330,22 @@
     <a href="{{ url_for('index') }}" class="btn btn-secondary">戻る</a>
 </div>
 
+<script>
+// ページ読み込み時にスクロール位置を復元
+document.addEventListener('DOMContentLoaded', function() {
+    let scrollPos = sessionStorage.getItem('scrollPosition');
+    if (scrollPos) {
+        window.scrollTo(0, scrollPos);
+        sessionStorage.removeItem('scrollPosition');
+    }
+});
+
+// フォーム送信時にスクロール位置を保存
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function() {
+        sessionStorage.setItem('scrollPosition', window.scrollY);
+    });
+});
+</script>
+
 {% endblock %} 
