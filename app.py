@@ -1004,19 +1004,17 @@ def reset_db():
 
 @app.route('/init_db')
 def initialize_database():
-    if FLASK_ENV != 'development':
-        return 'この操作は開発環境でのみ実行可能です。'
-        
     try:
         with app.app_context():
             # テーブルが存在するか確認
             inspector = inspect(db.engine)
             existing_tables = inspector.get_table_names()
             
-            if not existing_tables:  # テーブルが存在しない場合のみ初期化
+            # テーブルが存在しない場合のみ作成
+            if not existing_tables:
                 db.create_all()
                 
-                # 初期管理者ユーザーの作成
+                # 初期管理者ユーザーの作成（存在しない場合のみ）
                 if not User.query.filter_by(username='admin').first():
                     admin = User(
                         username='admin',
@@ -1027,10 +1025,23 @@ def initialize_database():
                     db.session.add(admin)
                     db.session.commit()
                     return 'データベースを初期化し、管理者ユーザーを作成しました'
-                    
+            
+            # テーブルは存在するが、管理者ユーザーがいない場合
+            elif not User.query.filter_by(username='admin').first():
+                admin = User(
+                    username='admin',
+                    email='admin@example.com',
+                    is_admin=True
+                )
+                admin.set_password('initial_password')
+                db.session.add(admin)
+                db.session.commit()
+                return '管理者ユーザーを作成しました'
+                
             return 'データベースは既に初期化されています'
             
     except Exception as e:
+        print(f"データベース初期化エラー: {str(e)}")  # エラーログを追加
         return f'エラーが発生しました: {str(e)}'
 
 @app.route('/toggle_profit/<int:payment_id>', methods=['POST'])
