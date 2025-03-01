@@ -555,15 +555,48 @@ def payment(work_type_id):
     months.append(('undecided', '未定'))
     
     if request.method == 'POST':
-        # 既存のPOST処理...
-        pass
-        
+        try:
+            # 年と月の処理
+            year = request.form['year']
+            month = request.form['month']
+            
+            # 未定の場合は0を設定
+            year = 0 if year == 'undecided' else int(year)
+            month = 0 if year == 0 or month == 'undecided' else int(month)
+            
+            # 支払い情報の作成
+            payment = Payment(
+                work_type_id=work_type_id,
+                year=year,
+                month=month,
+                contractor=request.form['contractor'],
+                description=request.form['description'],
+                payment_type=request.form['payment_type'],
+                amount=int(request.form['amount']),
+                is_progress_payment=request.form['payment_type'] == '出来高'
+            )
+            
+            db.session.add(payment)
+            db.session.commit()
+            
+            # 工種の残額を再計算
+            work_type.calculate_remaining_amount()
+            db.session.commit()
+            
+            flash('支払い情報を登録しました')
+            return redirect(url_for('work_type_list', project_id=work_type.project_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'エラーが発生しました: {str(e)}')
+            return redirect(url_for('payment', work_type_id=work_type_id))
+    
     return render_template('payment.html', 
                          work_type=work_type,
                          years=years,
                          months=months,
-                         current_year=str(current_year),  # 現在の年を追加
-                         current_month=str(current_month))  # 現在の月を追加
+                         current_year=str(current_year),
+                         current_month=str(current_month))
 
 @app.route('/api/payment_history/<int:work_type_id>')
 def payment_history(work_type_id):
