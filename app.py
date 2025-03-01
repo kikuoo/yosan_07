@@ -221,6 +221,14 @@ class WorkType(db.Model):
         )
         return sorted_totals
 
+    @property
+    def has_profit_entry(self):
+        """利益計上エントリーが存在するかどうかを確認"""
+        return Payment.query.filter_by(
+            work_type_id=self.id,
+            is_profit=True
+        ).first() is not None
+
 class Payment(db.Model):
     __tablename__ = 'payments'
     
