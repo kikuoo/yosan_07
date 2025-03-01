@@ -14,6 +14,9 @@ from dotenv import load_dotenv
 # 環境変数の読み込み
 load_dotenv()
 
+# 環境変数の設定
+FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+
 # Flaskアプリケーションの設定
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -23,9 +26,6 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # セッション
 app.config['SESSION_COOKIE_SECURE'] = True if FLASK_ENV == 'production' else False  # 本番環境のみHTTPS必須
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
-# 環境変数の設定
-FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 
 # 環境に応じた設定
 if FLASK_ENV == 'production':
