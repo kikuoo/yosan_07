@@ -189,8 +189,8 @@ class WorkType(db.Model):
 
     @property
     def current_budget_amount(self):
-        """実行予算額を計算（支払い合計 + 予算残額）"""
-        return self.budget_amount  # 当初予算額をそのまま返す
+        """実行予算額を計算（支払い額 + 残額合計 - 利益計上合計）"""
+        return self.total_payments + self.remaining_amount - self.profit_amount
 
     def calculate_remaining_amount(self):
         """予算残額を計算する。利益計上額を考慮"""
@@ -1013,11 +1013,12 @@ def initialize_database():
             inspector = inspect(db.engine)
             existing_tables = inspector.get_table_names()
             
-            # テーブルが存在しない場合のみ作成
             if not existing_tables:
+                # テーブルが存在しない場合のみ、新規作成
+                print("新規データベースを作成します")
                 db.create_all()
                 
-                # 初期管理者ユーザーの作成（存在しない場合のみ）
+                # 初期管理者ユーザーの作成
                 if not User.query.filter_by(username='admin').first():
                     admin = User(
                         username='admin',
@@ -1028,23 +1029,33 @@ def initialize_database():
                     db.session.add(admin)
                     db.session.commit()
                     return 'データベースを初期化し、管理者ユーザーを作成しました'
-            
-            # テーブルは存在するが、管理者ユーザーがいない場合
-            elif not User.query.filter_by(username='admin').first():
-                admin = User(
-                    username='admin',
-                    email='admin@example.com',
-                    is_admin=True
-                )
-                admin.set_password('initial_password')
-                db.session.add(admin)
-                db.session.commit()
-                return '管理者ユーザーを作成しました'
+            else:
+                # テーブルが存在する場合は、必要なテーブルだけを作成
+                required_tables = {'users', 'projects', 'work_types', 'payments'}
+                existing_tables_set = set(existing_tables)
+                missing_tables = required_tables - existing_tables_set
                 
-            return 'データベースは既に初期化されています'
+                if missing_tables:
+                    print(f"不足しているテーブルを作成します: {missing_tables}")
+                    # 不足しているテーブルのみを作成
+                    db.create_all()
+                
+                # 管理者ユーザーが存在しない場合のみ作成
+                if not User.query.filter_by(username='admin').first():
+                    admin = User(
+                        username='admin',
+                        email='admin@example.com',
+                        is_admin=True
+                    )
+                    admin.set_password('initial_password')
+                    db.session.add(admin)
+                    db.session.commit()
+                    return '管理者ユーザーを作成しました'
+                
+                return 'データベースは既に初期化されています'
             
     except Exception as e:
-        print(f"データベース初期化エラー: {str(e)}")  # エラーログを追加
+        print(f"データベース初期化エラー: {str(e)}")
         return f'エラーが発生しました: {str(e)}'
 
 @app.route('/toggle_profit/<int:payment_id>', methods=['POST'])
