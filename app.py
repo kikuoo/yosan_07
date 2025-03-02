@@ -1013,8 +1013,13 @@ def initialize_database():
             inspector = inspect(db.engine)
             existing_tables = inspector.get_table_names()
             
+            # 本番環境では既存のテーブルがある場合は何もしない
+            if FLASK_ENV == 'production' and existing_tables:
+                print("本番環境: 既存のデータベースを保持します")
+                return 'データベースは既に初期化されています'
+            
+            # 開発環境または新規デプロイ時のみテーブルを作成
             if not existing_tables:
-                # テーブルが存在しない場合のみ、新規作成
                 print("新規データベースを作成します")
                 db.create_all()
                 
@@ -1029,30 +1034,8 @@ def initialize_database():
                     db.session.add(admin)
                     db.session.commit()
                     return 'データベースを初期化し、管理者ユーザーを作成しました'
-            else:
-                # テーブルが存在する場合は、必要なテーブルだけを作成
-                required_tables = {'users', 'projects', 'work_types', 'payments'}
-                existing_tables_set = set(existing_tables)
-                missing_tables = required_tables - existing_tables_set
-                
-                if missing_tables:
-                    print(f"不足しているテーブルを作成します: {missing_tables}")
-                    # 不足しているテーブルのみを作成
-                    db.create_all()
-                
-                # 管理者ユーザーが存在しない場合のみ作成
-                if not User.query.filter_by(username='admin').first():
-                    admin = User(
-                        username='admin',
-                        email='admin@example.com',
-                        is_admin=True
-                    )
-                    admin.set_password('initial_password')
-                    db.session.add(admin)
-                    db.session.commit()
-                    return '管理者ユーザーを作成しました'
-                
-                return 'データベースは既に初期化されています'
+            
+            return 'データベースは既に初期化されています'
             
     except Exception as e:
         print(f"データベース初期化エラー: {str(e)}")
@@ -1079,6 +1062,25 @@ def clear_login_data():
         return redirect(url_for('login'))
     
     return render_template('clear_login_confirm.html')
+
+@app.route('/delete_account', methods=['GET', 'POST'])
+@login_required
+def delete_account():
+    if request.method == 'POST':
+        user = User.query.get(current_user.id)
+        if user.is_admin:
+            flash('管理者アカウントは削除できません')
+            return redirect(url_for('index'))
+            
+        # ログアウトしてからユーザーを削除
+        logout_user()
+        db.session.delete(user)
+        db.session.commit()
+        
+        flash('アカウントを削除しました')
+        return redirect(url_for('login'))
+    
+    return render_template('delete_account_confirm.html')
 
 if __name__ == '__main__':
     app.run(debug=True) 
