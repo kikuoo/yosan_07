@@ -1067,5 +1067,18 @@ def toggle_profit(payment_id):
     flash('利益計上状態を更新しました')
     return redirect(url_for('work_type_list', project_id=payment.work_type.project_id))
 
+@app.route('/clear_login_data', methods=['GET', 'POST'])
+@login_required
+def clear_login_data():
+    if request.method == 'POST':
+        # ログアウト処理
+        logout_user()
+        # セッションをクリア
+        session.clear()
+        flash('ログイン情報を消去しました')
+        return redirect(url_for('login'))
+    
+    return render_template('clear_login_confirm.html')
+
 if __name__ == '__main__':
     app.run(debug=True) 
