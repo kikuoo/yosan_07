@@ -2,7 +2,7 @@ from app import db, User
 
 def seed_database():
     # データベースの初期化
-    db.create_all()
+    db.create_all() 
     
     # 初期ユーザーの作成
     if not User.query.filter_by(email='admin@example.com').first():
