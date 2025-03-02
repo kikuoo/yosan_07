@@ -1,5 +1,4 @@
 from app import db, User
-from werkzeug.security import generate_password_hash
 
 def seed_database():
     # データベースの初期化
@@ -9,9 +8,10 @@ def seed_database():
     if not User.query.filter_by(email='admin@example.com').first():
         admin = User(
             email='admin@example.com',
-            password=generate_password_hash('your-password'),
-            # その他必要なフィールド
+            username='admin',
+            is_admin=True
         )
+        admin.set_password('initial_password')  # User modelのメソッドを使用
         db.session.add(admin)
         db.session.commit()
 
