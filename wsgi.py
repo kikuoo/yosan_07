@@ -9,15 +9,14 @@ def init_database():
             inspector = inspect(db.engine)
             existing_tables = inspector.get_table_names()
             
-            # usersテーブルが存在し、かつデータが存在する場合は初期化をスキップ
-            if 'users' in existing_tables and User.query.first():
-                print("既存のデータベースとユーザーが見つかりました")
+            # 本番環境では既存のテーブルがある場合は何もしない
+            if existing_tables:
+                print("既存のデータベースを保持します")
                 return
-                
-            # テーブルが存在しない場合のみ作成
-            if not existing_tables:
-                print("新規データベースを作成します")
-                db.create_all()
+            
+            # テーブルが存在しない場合のみ新規作成
+            print("新規データベースを作成します")
+            db.create_all()
             
             # 管理者ユーザーが存在しない場合のみ作成
             if not User.query.filter_by(username='admin').first():
