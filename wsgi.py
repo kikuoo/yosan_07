@@ -26,15 +26,13 @@ def init_database():
             raise Exception("データベースに接続できません")
 
         with app.app_context():
-            # スキーマも含めてテーブルを確認
             inspector = inspect(db.engine)
-            # 明示的にpublicスキーマを指定
+            # PostgreSQLのpublicスキーマを指定
             existing_tables = inspector.get_table_names(schema='public')
             print(f"既存のテーブル: {existing_tables}")
             
-            # テーブルの存在確認を改善
             try:
-                # 直接SQLクエリでテーブルの存在を確認
+                # テーブルの存在確認
                 result = db.session.execute(text("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
