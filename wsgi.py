@@ -16,6 +16,8 @@ def check_database_connection():
             # PostgreSQL用のURLを設定
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url
             db.engine.dispose()  # 既存の接続を破棄
+            db.session.remove()  # セッションをクリア
+            db.engine = db.create_engine(database_url)  # エンジンを再作成
             
             # 接続テスト用のシンプルなクエリを実行
             db.session.execute(text('SELECT 1'))
@@ -37,26 +39,17 @@ def init_database():
 
         with app.app_context():
             try:
-                # データベースの種類を確認
-                is_postgresql = 'postgresql' in str(db.engine.url)
-                
-                if is_postgresql:
-                    # PostgreSQL用のクエリ
-                    result = db.session.execute(text("""
-                        SELECT EXISTS (
-                            SELECT 1 FROM information_schema.tables 
-                            WHERE table_schema = 'public' 
-                            AND table_type = 'BASE TABLE'
-                            AND table_name = 'users'
-                        )
-                    """))
-                else:
-                    # SQLite用のクエリ
-                    result = db.session.execute(text("""
-                        SELECT COUNT(*) FROM sqlite_master 
-                        WHERE type='table' AND name='users'
-                    """))
-                
+                # PostgreSQLのシステムカタログを直接確認
+                result = db.session.execute(text("""
+                    SELECT EXISTS (
+                        SELECT 1 
+                        FROM pg_catalog.pg_class c
+                        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                        WHERE n.nspname = 'public'
+                        AND c.relname = 'users'
+                        AND c.relkind = 'r'
+                    )
+                """))
                 table_exists = result.scalar()
                 
                 if table_exists:
