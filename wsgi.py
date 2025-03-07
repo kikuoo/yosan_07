@@ -6,10 +6,14 @@ def check_database_connection():
     """データベース接続を確認する"""
     try:
         with app.app_context():
+            # データベースURLの確認
+            database_url = os.getenv('DATABASE_URL', 'Not Set')
+            if not database_url.startswith('postgresql://'):
+                raise Exception("PostgreSQLの接続URLが正しく設定されていません")
+
             # 接続テスト用のシンプルなクエリを実行
             db.session.execute(text('SELECT 1'))
             db.session.commit()
-            database_url = os.getenv('DATABASE_URL', 'Not Set')
             # URLの機密情報を隠す
             safe_url = database_url.split('@')[1] if '@' in database_url else database_url
             print(f"データベース接続成功: {safe_url}")
@@ -26,13 +30,8 @@ def init_database():
             raise Exception("データベースに接続できません")
 
         with app.app_context():
-            inspector = inspect(db.engine)
-            # PostgreSQLのpublicスキーマを指定
-            existing_tables = inspector.get_table_names(schema='public')
-            print(f"既存のテーブル: {existing_tables}")
-            
+            # テーブルの存在確認
             try:
-                # テーブルの存在確認
                 result = db.session.execute(text("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
@@ -52,24 +51,23 @@ def init_database():
                 print(f"テーブル確認エラー: {str(e)}")
 
             # テーブルが存在しない場合のみ新規作成
-            if not table_exists:
-                print("新規データベースを作成します")
-                db.create_all()
-                
-                # 管理者ユーザーが存在しない場合のみ作成
-                if not User.query.filter_by(username='admin').first():
-                    admin = User(
-                        username='admin',
-                        email='admin@example.com',
-                        is_admin=True
-                    )
-                    admin.set_password('initial_password')
-                    db.session.add(admin)
-                    db.session.commit()
-                    print("管理者ユーザーを作成しました")
+            print("新規データベースを作成します")
+            db.create_all()
+            
+            # 管理者ユーザーが存在しない場合のみ作成
+            if not User.query.filter_by(username='admin').first():
+                admin = User(
+                    username='admin',
+                    email='admin@example.com',
+                    is_admin=True
+                )
+                admin.set_password('initial_password')
+                db.session.add(admin)
+                db.session.commit()
+                print("管理者ユーザーを作成しました")
     except Exception as e:
         print(f"データベース初期化エラー: {str(e)}")
-        raise  # エラーを再度発生させてアプリケーションを停止
+        raise
 
 # アプリケーション起動時にデータベースを初期化
 init_database()
