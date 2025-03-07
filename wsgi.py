@@ -37,15 +37,26 @@ def init_database():
 
         with app.app_context():
             try:
-                # PostgreSQL固有のクエリでテーブル確認
-                result = db.session.execute(text("""
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables 
-                        WHERE table_schema = 'public' 
-                        AND table_type = 'BASE TABLE'
-                        AND table_name = 'users'
-                    )
-                """))
+                # データベースの種類を確認
+                is_postgresql = 'postgresql' in str(db.engine.url)
+                
+                if is_postgresql:
+                    # PostgreSQL用のクエリ
+                    result = db.session.execute(text("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_schema = 'public' 
+                            AND table_type = 'BASE TABLE'
+                            AND table_name = 'users'
+                        )
+                    """))
+                else:
+                    # SQLite用のクエリ
+                    result = db.session.execute(text("""
+                        SELECT COUNT(*) FROM sqlite_master 
+                        WHERE type='table' AND name='users'
+                    """))
+                
                 table_exists = result.scalar()
                 
                 if table_exists:
