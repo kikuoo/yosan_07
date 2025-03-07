@@ -32,11 +32,13 @@ def init_database():
         with app.app_context():
             # テーブルの存在確認
             try:
+                # PostgreSQL用のシンプルなクエリに変更
                 result = db.session.execute(text("""
                     SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_schema = 'public' 
-                        AND table_name = 'users'
+                        SELECT 1 
+                        FROM pg_tables 
+                        WHERE schemaname = 'public' 
+                        AND tablename = 'users'
                     )
                 """))
                 table_exists = result.scalar()
