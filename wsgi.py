@@ -26,24 +26,35 @@ def init_database():
             raise Exception("データベースに接続できません")
 
         with app.app_context():
-            # テーブルが存在するか確認
+            # スキーマも含めてテーブルを確認
             inspector = inspect(db.engine)
-            existing_tables = inspector.get_table_names()
+            # 明示的にpublicスキーマを指定
+            existing_tables = inspector.get_table_names(schema='public')
             print(f"既存のテーブル: {existing_tables}")
             
-            # usersテーブルが存在し、データがある場合は初期化をスキップ
-            if 'users' in existing_tables:
-                try:
+            # テーブルの存在確認を改善
+            try:
+                # 直接SQLクエリでテーブルの存在を確認
+                result = db.session.execute(text("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                        AND table_name = 'users'
+                    )
+                """))
+                table_exists = result.scalar()
+                
+                if table_exists:
                     user_count = User.query.count()
                     print(f"既存のユーザー数: {user_count}")
                     if user_count > 0:
                         print("既存のデータベースとユーザーが存在します。初期化をスキップします。")
                         return
-                except Exception as e:
-                    print(f"ユーザーテーブル確認エラー: {str(e)}")
+            except Exception as e:
+                print(f"テーブル確認エラー: {str(e)}")
 
             # テーブルが存在しない場合のみ新規作成
-            if not existing_tables:
+            if not table_exists:
                 print("新規データベースを作成します")
                 db.create_all()
                 
