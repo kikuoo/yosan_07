@@ -6,11 +6,17 @@ def check_database_connection():
     """データベース接続を確認する"""
     try:
         with app.app_context():
-            # データベースURLの確認
+            # データベースURLの確認と修正
             database_url = os.getenv('DATABASE_URL', 'Not Set')
+            if database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
             if not database_url.startswith('postgresql://'):
                 raise Exception("PostgreSQLの接続URLが正しく設定されていません")
-
+            
+            # PostgreSQL用のURLを設定
+            app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+            db.engine.dispose()  # 既存の接続を破棄
+            
             # 接続テスト用のシンプルなクエリを実行
             db.session.execute(text('SELECT 1'))
             db.session.commit()
@@ -30,24 +36,29 @@ def init_database():
             raise Exception("データベースに接続できません")
 
         with app.app_context():
-            # テーブルの存在確認
             try:
-                # より基本的なSQLクエリを使用
+                # PostgreSQL固有のクエリでテーブル確認
                 result = db.session.execute(text("""
-                    SELECT COUNT(*) 
-                    FROM users
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                        AND table_type = 'BASE TABLE'
+                        AND table_name = 'users'
+                    )
                 """))
-                user_count = result.scalar()
-                print(f"既存のユーザー数: {user_count}")
-                if user_count > 0:
-                    print("既存のデータベースとユーザーが存在します。初期化をスキップします。")
-                    return
+                table_exists = result.scalar()
+                
+                if table_exists:
+                    user_count = User.query.count()
+                    print(f"既存のユーザー数: {user_count}")
+                    if user_count > 0:
+                        print("既存のデータベースとユーザーが存在します。初期化をスキップします。")
+                        return
             except Exception as e:
-                # テーブルが存在しない場合はエラーが発生するため、新規作成に進む
                 print(f"テーブル確認エラー（新規作成を実行します）: {str(e)}")
-                user_count = 0
+                table_exists = False
 
-            if user_count == 0:
+            if not table_exists:
                 print("新規データベースを作成します")
                 db.create_all()
                 
