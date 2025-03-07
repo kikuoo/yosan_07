@@ -32,41 +32,36 @@ def init_database():
         with app.app_context():
             # テーブルの存在確認
             try:
-                # PostgreSQL用のシンプルなクエリに変更
+                # より基本的なSQLクエリを使用
                 result = db.session.execute(text("""
-                    SELECT EXISTS (
-                        SELECT 1 
-                        FROM pg_tables 
-                        WHERE schemaname = 'public' 
-                        AND tablename = 'users'
-                    )
+                    SELECT COUNT(*) 
+                    FROM users
                 """))
-                table_exists = result.scalar()
-                
-                if table_exists:
-                    user_count = User.query.count()
-                    print(f"既存のユーザー数: {user_count}")
-                    if user_count > 0:
-                        print("既存のデータベースとユーザーが存在します。初期化をスキップします。")
-                        return
+                user_count = result.scalar()
+                print(f"既存のユーザー数: {user_count}")
+                if user_count > 0:
+                    print("既存のデータベースとユーザーが存在します。初期化をスキップします。")
+                    return
             except Exception as e:
-                print(f"テーブル確認エラー: {str(e)}")
+                # テーブルが存在しない場合はエラーが発生するため、新規作成に進む
+                print(f"テーブル確認エラー（新規作成を実行します）: {str(e)}")
+                user_count = 0
 
-            # テーブルが存在しない場合のみ新規作成
-            print("新規データベースを作成します")
-            db.create_all()
-            
-            # 管理者ユーザーが存在しない場合のみ作成
-            if not User.query.filter_by(username='admin').first():
-                admin = User(
-                    username='admin',
-                    email='admin@example.com',
-                    is_admin=True
-                )
-                admin.set_password('initial_password')
-                db.session.add(admin)
-                db.session.commit()
-                print("管理者ユーザーを作成しました")
+            if user_count == 0:
+                print("新規データベースを作成します")
+                db.create_all()
+                
+                # 管理者ユーザーが存在しない場合のみ作成
+                if not User.query.filter_by(username='admin').first():
+                    admin = User(
+                        username='admin',
+                        email='admin@example.com',
+                        is_admin=True
+                    )
+                    admin.set_password('initial_password')
+                    db.session.add(admin)
+                    db.session.commit()
+                    print("管理者ユーザーを作成しました")
     except Exception as e:
         print(f"データベース初期化エラー: {str(e)}")
         raise
