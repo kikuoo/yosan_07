@@ -1,23 +1,6 @@
-from app import app, db, User
 from sqlalchemy import inspect, text
-import os
-
-def check_database_connection():
-    """データベース接続を確認する"""
-    try:
-        with app.app_context():
-            # データベースURLの確認と修正
-            database_url = os.getenv('DATABASE_URL', 'Not Set')
-            if database_url.startswith('postgres://'):
-                database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            if not database_url.startswith('postgresql://'):
-                raise Exception("PostgreSQLの接続URLが正しく設定されていません")
-            
-            # PostgreSQL用のURLを設定
-            app.config['SQLALCHEMY_DATABASE_URI'] = database_url
             db.engine.dispose()  # 既存の接続を破棄
             db.session.remove()  # セッションをクリア
-            db.engine = db.create_engine(database_url)  # エンジンを再作成
             
             # 接続テスト用のシンプルなクエリを実行
             db.session.execute(text('SELECT 1'))
