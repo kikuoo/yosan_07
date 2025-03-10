@@ -12,18 +12,19 @@ def check_database_connection():
         # データベースURLを取得
         database_url = os.getenv('DATABASE_URL', 'unknown')
         
-        # 接続テスト
-        db.engine.dispose()  # 既存の接続を破棄
-        db.session.remove()  # セッションをクリア
-        
-        # 接続テスト用のシンプルなクエリを実行
-        db.session.execute(text('SELECT 1'))
-        db.session.commit()
-        
-        # URLの機密情報を隠す
-        safe_url = database_url.split('@')[1] if '@' in database_url else database_url
-        print(f"データベース接続成功: {safe_url}")
-        return True
+        with app.app_context():
+            # 接続テスト
+            db.engine.dispose()  # 既存の接続を破棄
+            db.session.remove()  # セッションをクリア
+            
+            # 接続テスト用のシンプルなクエリを実行
+            db.session.execute(text('SELECT 1'))
+            db.session.commit()
+            
+            # URLの機密情報を隠す
+            safe_url = database_url.split('@')[1] if '@' in database_url else database_url
+            print(f"データベース接続成功: {safe_url}")
+            return True
     except Exception as e:
         print(f"データベース接続エラー: {str(e)}")
         return False
@@ -82,7 +83,8 @@ def init_database():
         raise
 
 # アプリケーション起動時にデータベースを初期化
-init_database()
+with app.app_context():
+    init_database()
 
 if __name__ == "__main__":
     app.run()
