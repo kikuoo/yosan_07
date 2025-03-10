@@ -12,7 +12,10 @@ def check_database_connection():
     try:
         # データベースURLを取得
         database_url = os.getenv('DATABASE_URL', 'unknown')
-        print(f"データベースURL: {database_url.split('@')[1] if '@' in database_url else database_url}")
+        if database_url:
+            # 改行文字を削除
+            database_url = database_url.strip()
+            print(f"データベースURL: {database_url.split('@')[1] if '@' in database_url else database_url}")
         
         with app.app_context():
             # 接続テスト
@@ -40,26 +43,33 @@ def init_database():
             
             # データベースURLから接続情報を取得
             database_url = os.getenv('DATABASE_URL', '')
-            if database_url.startswith("postgres://"):
-                database_url = database_url.replace("postgres://", "postgresql://", 1)
-            
-            # データベース名を取得
-            db_name = database_url.split('/')[-1]
-            base_url = database_url.rsplit('/', 1)[0]
-            
-            # デフォルトのデータベースに接続して新しいデータベースを作成
-            from sqlalchemy import create_engine
-            engine = create_engine(base_url + '/postgres')
-            with engine.connect() as conn:
-                conn.execute(text('commit'))
-                conn.execute(text(f'CREATE DATABASE {db_name}'))
-                conn.execute(text('commit'))
-            
-            print(f"データベース {db_name} を作成しました")
-            
-            # 接続を再試行
-            if not check_database_connection():
-                raise Exception("データベースの作成に失敗しました")
+            if database_url:
+                # 改行文字を削除
+                database_url = database_url.strip()
+                
+                if database_url.startswith("postgres://"):
+                    database_url = database_url.replace("postgres://", "postgresql://", 1)
+                
+                # データベース名を取得（改行文字を削除）
+                db_name = database_url.split('/')[-1].strip()
+                base_url = database_url.rsplit('/', 1)[0]
+                
+                print(f"データベース名: {db_name}")
+                print(f"ベースURL: {base_url}")
+                
+                # デフォルトのデータベースに接続して新しいデータベースを作成
+                from sqlalchemy import create_engine
+                engine = create_engine(base_url + '/postgres')
+                with engine.connect() as conn:
+                    conn.execute(text('commit'))
+                    conn.execute(text(f'CREATE DATABASE {db_name}'))
+                    conn.execute(text('commit'))
+                
+                print(f"データベース {db_name} を作成しました")
+                
+                # 接続を再試行
+                if not check_database_connection():
+                    raise Exception("データベースの作成に失敗しました")
 
         from app import app, db, User
         

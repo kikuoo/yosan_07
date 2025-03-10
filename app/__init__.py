@@ -2,6 +2,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 import os
+from urllib.parse import urlparse
 
 # データベースの設定
 db = SQLAlchemy()
@@ -16,10 +17,10 @@ def create_app():
         # RenderのPostgreSQL URLを修正
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)
-        # データベース名を修正
-        if "yosan_psql" in database_url:
-            database_url = database_url.replace("yosan_psql", "yosan_psql", 1)
-        print(f"データベースURL: {database_url}")
+        
+        # URLをパースして確認
+        parsed = urlparse(database_url)
+        print(f"データベースURL: {parsed.scheme}://{parsed.netloc}/{parsed.path.lstrip('/')}")
     else:
         database_url = 'sqlite:///app.db'
     
