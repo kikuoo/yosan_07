@@ -24,6 +24,9 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     
+    # モデルのインポート
+    from app import models
+    
     # ブループリントの登録
     from app.routes import main
     from app.auth import auth
