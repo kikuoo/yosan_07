@@ -11,6 +11,7 @@ def check_database_connection():
     try:
         # データベースURLを取得
         database_url = os.getenv('DATABASE_URL', 'unknown')
+        print(f"データベースURL: {database_url.split('@')[1] if '@' in database_url else database_url}")
         
         with app.app_context():
             # 接続テスト
@@ -21,12 +22,12 @@ def check_database_connection():
             db.session.execute(text('SELECT 1'))
             db.session.commit()
             
-            # URLの機密情報を隠す
-            safe_url = database_url.split('@')[1] if '@' in database_url else database_url
-            print(f"データベース接続成功: {safe_url}")
+            print("データベース接続成功")
             return True
     except Exception as e:
         print(f"データベース接続エラー: {str(e)}")
+        import traceback
+        print(f"スタックトレース: {traceback.format_exc()}")
         return False
 
 def init_database():
@@ -87,6 +88,8 @@ def init_database():
                     print("管理者ユーザーを作成しました")
     except Exception as e:
         print(f"データベース初期化エラー: {str(e)}")
+        import traceback
+        print(f"スタックトレース: {traceback.format_exc()}")
         raise
 
 # アプリケーション起動時にデータベースを初期化

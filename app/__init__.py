@@ -30,4 +30,7 @@ def create_app():
     app.register_blueprint(main)
     app.register_blueprint(auth)
     
-    return app 
+    return app
+
+# アプリケーションインスタンスを作成
+app = create_app() 
