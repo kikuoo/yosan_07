@@ -43,11 +43,12 @@ def init_database():
                 # テーブルの存在確認をより詳細に行う
                 print("テーブルの存在確認を開始します...")
                 
-                # すべてのテーブルを取得
+                # PostgreSQL用のテーブル一覧取得
                 result = db.session.execute(text("""
                     SELECT table_name 
                     FROM information_schema.tables 
                     WHERE table_schema = 'public'
+                    AND table_type = 'BASE TABLE'
                 """))
                 tables = [row[0] for row in result]
                 print(f"存在するテーブル: {tables}")
