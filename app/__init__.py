@@ -12,10 +12,18 @@ def create_app():
     
     # データベースの設定
     database_url = os.getenv('DATABASE_URL')
-    if database_url and database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    if database_url:
+        # RenderのPostgreSQL URLを修正
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        # データベース名を修正
+        if "yosan_psql" in database_url:
+            database_url = database_url.replace("yosan_psql", "yosan_psql", 1)
+        print(f"データベースURL: {database_url}")
+    else:
+        database_url = 'sqlite:///app.db'
     
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///app.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
     

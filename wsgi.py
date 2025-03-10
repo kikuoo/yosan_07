@@ -1,6 +1,7 @@
 from app import app
 from app import db
 from sqlalchemy import text
+import os
 
 # アプリケーション起動時にデータベースを初期化
 def check_database_connection():
@@ -35,7 +36,30 @@ def init_database():
     try:
         # まず接続を確認
         if not check_database_connection():
-            raise Exception("データベースに接続できません")
+            print("データベース接続に失敗しました。データベースの作成を試みます...")
+            
+            # データベースURLから接続情報を取得
+            database_url = os.getenv('DATABASE_URL', '')
+            if database_url.startswith("postgres://"):
+                database_url = database_url.replace("postgres://", "postgresql://", 1)
+            
+            # データベース名を取得
+            db_name = database_url.split('/')[-1]
+            base_url = database_url.rsplit('/', 1)[0]
+            
+            # デフォルトのデータベースに接続して新しいデータベースを作成
+            from sqlalchemy import create_engine
+            engine = create_engine(base_url + '/postgres')
+            with engine.connect() as conn:
+                conn.execute(text('commit'))
+                conn.execute(text(f'CREATE DATABASE {db_name}'))
+                conn.execute(text('commit'))
+            
+            print(f"データベース {db_name} を作成しました")
+            
+            # 接続を再試行
+            if not check_database_connection():
+                raise Exception("データベースの作成に失敗しました")
 
         from app import app, db, User
         
