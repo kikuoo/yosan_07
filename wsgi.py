@@ -95,7 +95,24 @@ def init_database():
         try:
             # 接続テスト
             with app_engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
+                # テーブルの存在確認
+                result = conn.execute(text("""
+                    SELECT table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'public'
+                    AND table_type = 'BASE TABLE'
+                """))
+                tables = [row[0] for row in result]
+                print(f"存在するテーブル: {tables}")
+                
+                if not tables:
+                    print("テーブルが存在しないため、作成します")
+                    with app.app_context():
+                        db.create_all()
+                    print("テーブルを作成しました")
+                else:
+                    print("テーブルは既に存在します")
+                
                 print("データベース接続テスト成功")
         except Exception as e:
             print(f"データベース接続テストエラー: {str(e)}")
@@ -103,14 +120,6 @@ def init_database():
 
         with app.app_context():
             try:
-                # テーブルの存在確認
-                print("テーブルの存在確認を開始します...")
-                
-                # テーブルの作成を試みる
-                print("テーブルを作成します...")
-                db.create_all()
-                print("テーブルを作成しました")
-                
                 # 管理者ユーザーの確認と作成
                 from app import User
                 if not User.query.filter_by(username='admin').first():
