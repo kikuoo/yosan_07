@@ -3,7 +3,7 @@ from app.models import User, Property, ConstructionBudget
 import os
 from dotenv import load_dotenv
 from sqlalchemy import text
-
+        
 load_dotenv()
 
 app = create_app()
