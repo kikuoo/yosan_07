@@ -45,14 +45,14 @@ def init_database():
             raise Exception("DATABASE_URL が設定されていません")
 
         # 改行文字を削除し、URLを正規化
-        database_url = database_url.strip().replace('\n', '').replace('\r', '')
+        database_url = ''.join(database_url.split())  # すべての空白文字を削除
         
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)
         
         # URLをパース
         parsed = urlparse(database_url)
-        db_name = parsed.path.lstrip('/').strip().replace('\n', '').replace('\r', '')
+        db_name = ''.join(parsed.path.lstrip('/').split())  # すべての空白文字を削除
         base_url = f"{parsed.scheme}://{parsed.netloc}"
         
         print(f"データベース名: [{db_name}]")  # 角括弧で囲んで表示
@@ -60,14 +60,11 @@ def init_database():
         
         # まずpostgresデータベースに接続
         postgres_url = f"{base_url}/postgres"
-        engine = create_engine(postgres_url)
+        engine = create_engine(postgres_url, isolation_level="AUTOCOMMIT")
         
         try:
             # データベースが存在するか確認
             with engine.connect() as conn:
-                # トランザクションをコミット
-                conn.execute(text("commit"))
-                
                 # データベースの存在確認（エスケープ処理を追加）
                 escaped_db_name = db_name.replace("'", "''")
                 result = conn.execute(text(
@@ -77,11 +74,8 @@ def init_database():
                 
                 if not exists:
                     print(f"データベース {db_name} が存在しないため、作成します")
-                    # 新しいトランザクションを開始
-                    conn.execute(text("commit"))
                     # データベース名をダブルクォートで囲む
                     conn.execute(text(f'CREATE DATABASE "{db_name}"'))
-                    conn.execute(text("commit"))
                     print(f"データベース {db_name} を作成しました")
                 else:
                     print(f"データベース {db_name} は既に存在します")
@@ -97,7 +91,7 @@ def init_database():
             raise
 
         # アプリケーションのデータベースに接続
-        app_engine = create_engine(database_url)
+        app_engine = create_engine(database_url, isolation_level="READ COMMITTED")
         try:
             # 接続テスト
             with app_engine.connect() as conn:
@@ -111,19 +105,11 @@ def init_database():
             try:
                 # テーブルの存在確認
                 print("テーブルの存在確認を開始します...")
-                result = db.session.execute(text("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public'
-                    AND table_type = 'BASE TABLE'
-                """))
-                tables = [row[0] for row in result]
-                print(f"存在するテーブル: {tables}")
                 
-                if not tables:
-                    print("テーブルが存在しないため、作成します")
-                    db.create_all()
-                    print("テーブルを作成しました")
+                # テーブルの作成を試みる
+                print("テーブルを作成します...")
+                db.create_all()
+                print("テーブルを作成しました")
                 
                 # 管理者ユーザーの確認と作成
                 from app import User
@@ -142,6 +128,7 @@ def init_database():
                 
             except Exception as e:
                 print(f"テーブル初期化エラー: {str(e)}")
+                db.session.rollback()
                 raise
             
     except Exception as e:
