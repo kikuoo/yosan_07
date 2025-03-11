@@ -105,7 +105,7 @@
                                             <td>{{ property.budget_amount | format_currency }}</td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="{{ url_for('main.property_detail', property_id=property.id) }}" class="btn btn-info btn-sm">詳細</a>
+                                                    <a href="{{ url_for('main.property_detail', id=property.id) }}" class="btn btn-info btn-sm">詳細</a>
                                                     <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editPropertyModal{{ property.id }}">編集</button>
                                                     <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deletePropertyModal{{ property.id }}">削除</button>
                                                 </div>
@@ -161,6 +161,66 @@
             </div>
         </div>
     </div>
+
+    {% for property in properties %}
+    <!-- 物件編集モーダル -->
+    <div class="modal fade" id="editPropertyModal{{ property.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">物件編集</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="{{ url_for('main.edit_property', id=property.id) }}" method="POST" id="editPropertyForm{{ property.id }}">
+                        <div class="mb-3">
+                            <label for="code{{ property.id }}" class="form-label">物件コード</label>
+                            <input type="text" class="form-control" id="code{{ property.id }}" name="code" value="{{ property.code }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="name{{ property.id }}" class="form-label">工事名</label>
+                            <input type="text" class="form-control" id="name{{ property.id }}" name="name" value="{{ property.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="contract_amount{{ property.id }}" class="form-label">請負金額</label>
+                            <input type="number" class="form-control" id="contract_amount{{ property.id }}" name="contract_amount" value="{{ property.contract_amount }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="budget_amount{{ property.id }}" class="form-label">実行予算額</label>
+                            <input type="number" class="form-control" id="budget_amount{{ property.id }}" name="budget_amount" value="{{ property.budget_amount }}" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="submit" form="editPropertyForm{{ property.id }}" class="btn btn-primary">更新</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 物件削除モーダル -->
+    <div class="modal fade" id="deletePropertyModal{{ property.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">物件削除の確認</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>物件「{{ property.name }}」を削除してもよろしいですか？</p>
+                    <p class="text-danger">この操作は取り消せません。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    <form action="{{ url_for('main.delete_property', id=property.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-danger">削除</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 
     <!-- Bootstrap JS and dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

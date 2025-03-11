@@ -63,10 +63,10 @@ def property_detail(id):
                          construction_budgets=construction_budgets,
                          construction_types=CONSTRUCTION_TYPES)
 
-@main.route('/property/<int:property_id>/edit', methods=['POST'])
+@main.route('/property/<int:id>/edit', methods=['POST'])
 @login_required
-def edit_property(property_id):
-    property = Property.query.get_or_404(property_id)
+def edit_property(id):
+    property = Property.query.get_or_404(id)
     if property.user_id != current_user.id:
         flash('アクセス権限がありません')
         return redirect(url_for('main.budgets'))
@@ -85,10 +85,10 @@ def edit_property(property_id):
 
     return redirect(url_for('main.budgets'))
 
-@main.route('/property/<int:property_id>/delete', methods=['POST'])
+@main.route('/property/<int:id>/delete', methods=['POST'])
 @login_required
-def delete_property(property_id):
-    property = Property.query.get_or_404(property_id)
+def delete_property(id):
+    property = Property.query.get_or_404(id)
     if property.user_id != current_user.id:
         flash('アクセス権限がありません')
         return redirect(url_for('main.budgets'))
