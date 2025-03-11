@@ -3,6 +3,7 @@ from app import db
 from sqlalchemy import text
 import os
 from urllib.parse import urlparse
+from sqlalchemy import create_engine
 
 # アプリケーション起動時にデータベースを初期化
 def check_database_connection():
@@ -38,49 +39,55 @@ def check_database_connection():
 def init_database():
     """データベースの初期化とテーブルの作成を行う"""
     try:
-        # まず接続を確認
-        if not check_database_connection():
-            print("データベース接続に失敗しました。データベースの作成を試みます...")
-            
-            # データベースURLから接続情報を取得
-            database_url = os.getenv('DATABASE_URL', '')
-            if database_url:
-                # 改行文字を削除
-                database_url = database_url.strip()
-                
-                if database_url.startswith("postgres://"):
-                    database_url = database_url.replace("postgres://", "postgresql://", 1)
-                
-                # URLをパース
-                parsed = urlparse(database_url)
-                db_name = parsed.path.lstrip('/').strip()  # 改行文字を削除
-                base_url = f"{parsed.scheme}://{parsed.netloc}/postgres"
-                
-                print(f"データベース名: {db_name}")
-                print(f"ベースURL: {base_url}")
-                
-                # デフォルトのデータベースに接続して新しいデータベースを作成
-                from sqlalchemy import create_engine
-                engine = create_engine(base_url)
-                with engine.connect() as conn:
-                    conn.execute(text('commit'))
-                    conn.execute(text(f'CREATE DATABASE {db_name}'))
-                    conn.execute(text('commit'))
-                
-                print(f"データベース {db_name} を作成しました")
-                
-                # 接続を再試行
-                if not check_database_connection():
-                    raise Exception("データベースの作成に失敗しました")
+        # データベースURLから接続情報を取得
+        database_url = os.getenv('DATABASE_URL', '')
+        if not database_url:
+            raise Exception("DATABASE_URL が設定されていません")
 
-        from app import app, db, User
+        # 改行文字を削除
+        database_url = database_url.strip()
         
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        
+        # URLをパース
+        parsed = urlparse(database_url)
+        db_name = parsed.path.lstrip('/').strip()  # 改行文字を削除
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        
+        print(f"データベース名: {db_name}")
+        print(f"ベースURL: {base_url}")
+        
+        # まずpostgresデータベースに接続
+        postgres_url = f"{base_url}/postgres"
+        engine = create_engine(postgres_url)
+        
+        try:
+            # データベースが存在するか確認
+            with engine.connect() as conn:
+                conn.execute(text("commit"))
+                result = conn.execute(text(
+                    f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'"
+                ))
+                exists = result.scalar() is not None
+                
+                if not exists:
+                    print(f"データベース {db_name} が存在しないため、作成します")
+                    conn.execute(text("commit"))
+                    conn.execute(text(f'CREATE DATABASE {db_name}'))
+                    conn.execute(text("commit"))
+                    print(f"データベース {db_name} を作成しました")
+                else:
+                    print(f"データベース {db_name} は既に存在します")
+        except Exception as e:
+            print(f"データベース作成エラー: {str(e)}")
+            raise
+
+        # アプリケーションのデータベースに接続
         with app.app_context():
             try:
-                # テーブルの存在確認をより詳細に行う
+                # テーブルの存在確認
                 print("テーブルの存在確認を開始します...")
-                
-                # PostgreSQL用のテーブル一覧取得
                 result = db.session.execute(text("""
                     SELECT table_name 
                     FROM information_schema.tables 
@@ -90,28 +97,13 @@ def init_database():
                 tables = [row[0] for row in result]
                 print(f"存在するテーブル: {tables}")
                 
-                # usersテーブルの存在を確認
-                if 'users' in tables:
-                    user_count = User.query.count()
-                    print(f"既存のユーザー数: {user_count}")
-                    if user_count > 0:
-                        print("既存のデータベースとユーザーが存在します。初期化をスキップします。")
-                        return
-                else:
-                    print("usersテーブルが存在しません")
-                    
-            except Exception as e:
-                print(f"テーブル確認エラー（新規作成を実行します）: {str(e)}")
-                print(f"エラーの詳細: {type(e).__name__}")
-                import traceback
-                print(f"スタックトレース: {traceback.format_exc()}")
-                table_exists = False
-
-            if not table_exists:
-                print("新規データベースを作成します")
-                db.create_all()
+                if not tables:
+                    print("テーブルが存在しないため、作成します")
+                    db.create_all()
+                    print("テーブルを作成しました")
                 
-                # 管理者ユーザーが存在しない場合のみ作成
+                # 管理者ユーザーの確認と作成
+                from app import User
                 if not User.query.filter_by(username='admin').first():
                     admin = User(
                         username='admin',
@@ -122,6 +114,13 @@ def init_database():
                     db.session.add(admin)
                     db.session.commit()
                     print("管理者ユーザーを作成しました")
+                else:
+                    print("管理者ユーザーは既に存在します")
+                
+            except Exception as e:
+                print(f"テーブル初期化エラー: {str(e)}")
+                raise
+            
     except Exception as e:
         print(f"データベース初期化エラー: {str(e)}")
         import traceback
