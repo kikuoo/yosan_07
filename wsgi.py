@@ -82,11 +82,11 @@ def init_database():
                         WHERE datname = '{escaped_db_name}'
                     """))
                     # データベースを作成
-                    conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+                    conn.execute(text(f'CREATE DATABASE "{db_name.strip()}"'))
                     print(f"データベース {db_name} を作成しました")
                 else:
                     print(f"データベース {db_name} は既に存在します")
-                    # 既存の接続を全て切断
+                    # 既存の接続を全て切断（現在の接続を除く）
                     conn.execute(text(f"""
                         SELECT pg_terminate_backend(pid)
                         FROM pg_stat_activity
@@ -96,7 +96,7 @@ def init_database():
                 
                 # データベースが本当に存在するか確認
                 check_query = text(f'SELECT 1 FROM pg_database WHERE datname = :db_name')
-                result = conn.execute(check_query, {'db_name': db_name})
+                result = conn.execute(check_query, {'db_name': db_name.strip()})
                 if not result.scalar():
                     raise Exception(f"データベース {db_name} の作成を確認できません")
                 
@@ -113,11 +113,12 @@ def init_database():
             pool_pre_ping=True,
             pool_size=5,
             max_overflow=10,
-            pool_timeout=30
+            pool_timeout=30,
+            connect_args={'connect_timeout': 10}
         )
         
         # 接続を確立するまで複数回試行
-        max_retries = 3
+        max_retries = 5
         retry_count = 0
         last_error = None
         
@@ -151,7 +152,17 @@ def init_database():
                 last_error = e
                 retry_count += 1
                 print(f"接続試行 {retry_count}/{max_retries} 失敗: {str(e)}")
-                time.sleep(2)  # 再試行前に待機
+                time.sleep(3)  # 再試行前に待機
+                
+                # データベースが存在しない場合は、作成を試みる
+                if "database" in str(e).lower() and "does not exist" in str(e).lower():
+                    try:
+                        with engine.connect() as conn:
+                            conn.execute(text(f'CREATE DATABASE "{db_name.strip()}"'))
+                            print(f"データベース {db_name} を再作成しました")
+                            time.sleep(3)  # データベース作成後に待機
+                    except Exception as create_error:
+                        print(f"データベース再作成エラー: {str(create_error)}")
                 
         if retry_count >= max_retries:
             print(f"データベース接続テストエラー: {str(last_error)}")
