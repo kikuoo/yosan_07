@@ -1,6 +1,6 @@
 from app import create_app, db
 from app.models import User, Property, ConstructionBudget
-from flask_migrate import upgrade
+from flask_migrate import upgrade, Migrate
 import os
 from dotenv import load_dotenv
 
@@ -10,8 +10,15 @@ app = create_app()
 
 def init_database():
     with app.app_context():
-        # データベースのマイグレーションを実行
-        upgrade()
+        try:
+            # データベースのマイグレーションを実行
+            upgrade()
+            print('データベースのマイグレーションを実行しました')
+        except Exception as e:
+            print(f'マイグレーションエラー: {str(e)}')
+            # エラーが発生した場合は、テーブルを直接作成
+            db.create_all()
+            print('テーブルを直接作成しました')
         
         # 管理者ユーザーの作成
         admin = User.query.filter_by(username='admin').first()
@@ -28,6 +35,8 @@ def init_database():
         else:
             print('管理者ユーザーは既に存在します')
 
+# アプリケーション起動時にデータベースを初期化
+init_database()
+
 if __name__ == '__main__':
-    init_database()
     app.run(debug=True)
