@@ -86,6 +86,13 @@ def init_database():
                     print(f"データベース {db_name} を作成しました")
                 else:
                     print(f"データベース {db_name} は既に存在します")
+                    # 既存の接続を全て切断
+                    conn.execute(text(f"""
+                        SELECT pg_terminate_backend(pid)
+                        FROM pg_stat_activity
+                        WHERE datname = '{escaped_db_name}'
+                        AND pid <> pg_backend_pid()
+                    """))
                 
                 # データベースが本当に存在するか確認
                 check_query = text(f'SELECT 1 FROM pg_database WHERE datname = :db_name')
@@ -98,36 +105,57 @@ def init_database():
             raise
 
         # 少し待機してデータベースの作成が完了するのを待つ
-        time.sleep(3)
+        time.sleep(5)
 
         # アプリケーションのデータベースに接続
-        app_engine = create_engine(database_url, pool_pre_ping=True)
-        try:
-            # 接続テスト
-            with app_engine.connect() as conn:
-                # テーブルの存在確認
-                result = conn.execute(text("""
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'public'
-                    AND table_type = 'BASE TABLE'
-                """))
-                tables = [row[0] for row in result]
-                print(f"存在するテーブル: {tables}")
+        app_engine = create_engine(
+            database_url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+            pool_timeout=30
+        )
+        
+        # 接続を確立するまで複数回試行
+        max_retries = 3
+        retry_count = 0
+        last_error = None
+        
+        while retry_count < max_retries:
+            try:
+                # 接続テスト
+                with app_engine.connect() as conn:
+                    # テーブルの存在確認
+                    result = conn.execute(text("""
+                        SELECT table_name 
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'public'
+                        AND table_type = 'BASE TABLE'
+                    """))
+                    tables = [row[0] for row in result]
+                    print(f"存在するテーブル: {tables}")
+                    
+                    if not tables:
+                        print("テーブルが存在しないため、作成します")
+                        with app.app_context():
+                            db.create_all()
+                            db.session.commit()
+                        print("テーブルを作成しました")
+                    else:
+                        print("テーブルは既に存在します")
+                    
+                    print("データベース接続テスト成功")
+                    break  # 成功したらループを抜ける
+                    
+            except Exception as e:
+                last_error = e
+                retry_count += 1
+                print(f"接続試行 {retry_count}/{max_retries} 失敗: {str(e)}")
+                time.sleep(2)  # 再試行前に待機
                 
-                if not tables:
-                    print("テーブルが存在しないため、作成します")
-                    with app.app_context():
-                        db.create_all()
-                        db.session.commit()
-                    print("テーブルを作成しました")
-                else:
-                    print("テーブルは既に存在します")
-                
-                print("データベース接続テスト成功")
-        except Exception as e:
-            print(f"データベース接続テストエラー: {str(e)}")
-            raise
+        if retry_count >= max_retries:
+            print(f"データベース接続テストエラー: {str(last_error)}")
+            raise last_error
 
         with app.app_context():
             try:
