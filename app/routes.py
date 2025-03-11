@@ -1,7 +1,7 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models import Property, ConstructionBudget
+from app.models import Property, ConstructionBudget, CONSTRUCTION_TYPES
 
 main = Blueprint('main', __name__)
 
@@ -49,15 +49,19 @@ def add_property():
 
     return redirect(url_for('main.budgets'))
 
-@main.route('/property/<int:property_id>')
+@main.route('/property/<int:id>')
 @login_required
-def property_detail(property_id):
-    property = Property.query.get_or_404(property_id)
+def property_detail(id):
+    property = Property.query.get_or_404(id)
     if property.user_id != current_user.id:
-        flash('アクセス権限がありません')
+        flash('この物件にアクセスする権限がありません。', 'error')
         return redirect(url_for('main.budgets'))
-    construction_budgets = ConstructionBudget.query.filter_by(property_id=property_id).all()
-    return render_template('property_detail.html', property=property, construction_budgets=construction_budgets)
+    
+    construction_budgets = ConstructionBudget.query.filter_by(property_id=id).all()
+    return render_template('property_detail.html', 
+                         property=property, 
+                         construction_budgets=construction_budgets,
+                         construction_types=CONSTRUCTION_TYPES)
 
 @main.route('/property/<int:property_id>/edit', methods=['POST'])
 @login_required
@@ -99,83 +103,110 @@ def delete_property(property_id):
 
     return redirect(url_for('main.budgets'))
 
-@main.route('/property/<int:property_id>/budget/add', methods=['POST'])
+@main.route('/property/<int:id>/construction_budget', methods=['POST'])
 @login_required
-def add_construction_budget(property_id):
-    property = Property.query.get_or_404(property_id)
+def add_construction_budget(id):
+    property = Property.query.get_or_404(id)
     if property.user_id != current_user.id:
-        flash('アクセス権限がありません')
+        flash('この物件にアクセスする権限がありません。', 'error')
         return redirect(url_for('main.budgets'))
-
+    
     code = request.form.get('code')
     name = request.form.get('name')
     amount = request.form.get('amount')
-
-    if not all([code, name, amount]):
-        flash('すべての項目を入力してください')
-        return redirect(url_for('main.property_detail', property_id=property_id))
-
+    remaining_amount = request.form.get('remaining_amount')
+    
+    if not all([code, name, amount, remaining_amount]):
+        flash('すべての項目を入力してください。', 'error')
+        return redirect(url_for('main.property_detail', id=id))
+    
     try:
-        budget = ConstructionBudget(
-            code=code,
-            name=name,
-            amount=amount,
-            property_id=property_id
-        )
-        db.session.add(budget)
+        amount = int(amount)
+        remaining_amount = int(remaining_amount)
+    except ValueError:
+        flash('予算額と予算残額は数値で入力してください。', 'error')
+        return redirect(url_for('main.property_detail', id=id))
+    
+    construction_budget = ConstructionBudget(
+        code=code,
+        name=name,
+        amount=amount,
+        remaining_amount=remaining_amount,
+        property_id=id
+    )
+    
+    try:
+        db.session.add(construction_budget)
         db.session.commit()
-        flash('工事予算を登録しました')
+        flash('工種予算を登録しました。', 'success')
     except Exception as e:
         db.session.rollback()
-        flash('工事予算の登録に失敗しました')
+        flash('工種予算の登録に失敗しました。', 'error')
+    
+    return redirect(url_for('main.property_detail', id=id))
 
-    return redirect(url_for('main.property_detail', property_id=property_id))
-
-@main.route('/property/<int:property_id>/budget/<int:budget_id>/edit', methods=['POST'])
+@main.route('/property/<int:id>/construction_budget/<int:budget_id>', methods=['POST'])
 @login_required
-def edit_construction_budget(property_id, budget_id):
-    property = Property.query.get_or_404(property_id)
+def update_construction_budget(id, budget_id):
+    property = Property.query.get_or_404(id)
     if property.user_id != current_user.id:
-        flash('アクセス権限がありません')
+        flash('この物件にアクセスする権限がありません。', 'error')
         return redirect(url_for('main.budgets'))
-
-    budget = ConstructionBudget.query.get_or_404(budget_id)
-    if budget.property_id != property_id:
-        flash('アクセス権限がありません')
-        return redirect(url_for('main.property_detail', property_id=property_id))
-
-    budget.code = request.form.get('code')
-    budget.name = request.form.get('name')
-    budget.amount = request.form.get('amount')
-
+    
+    construction_budget = ConstructionBudget.query.get_or_404(budget_id)
+    if construction_budget.property_id != id:
+        flash('この工種予算にアクセスする権限がありません。', 'error')
+        return redirect(url_for('main.property_detail', id=id))
+    
+    code = request.form.get('code')
+    name = request.form.get('name')
+    amount = request.form.get('amount')
+    remaining_amount = request.form.get('remaining_amount')
+    
+    if not all([code, name, amount, remaining_amount]):
+        flash('すべての項目を入力してください。', 'error')
+        return redirect(url_for('main.property_detail', id=id))
+    
+    try:
+        amount = int(amount)
+        remaining_amount = int(remaining_amount)
+    except ValueError:
+        flash('予算額と予算残額は数値で入力してください。', 'error')
+        return redirect(url_for('main.property_detail', id=id))
+    
+    construction_budget.code = code
+    construction_budget.name = name
+    construction_budget.amount = amount
+    construction_budget.remaining_amount = remaining_amount
+    
     try:
         db.session.commit()
-        flash('工事予算を更新しました')
+        flash('工種予算を更新しました。', 'success')
     except Exception as e:
         db.session.rollback()
-        flash('工事予算の更新に失敗しました')
+        flash('工種予算の更新に失敗しました。', 'error')
+    
+    return redirect(url_for('main.property_detail', id=id))
 
-    return redirect(url_for('main.property_detail', property_id=property_id))
-
-@main.route('/property/<int:property_id>/budget/<int:budget_id>/delete', methods=['POST'])
+@main.route('/property/<int:id>/construction_budget/<int:budget_id>/delete', methods=['POST'])
 @login_required
-def delete_construction_budget(property_id, budget_id):
-    property = Property.query.get_or_404(property_id)
+def delete_construction_budget(id, budget_id):
+    property = Property.query.get_or_404(id)
     if property.user_id != current_user.id:
-        flash('アクセス権限がありません')
+        flash('この物件にアクセスする権限がありません。', 'error')
         return redirect(url_for('main.budgets'))
-
-    budget = ConstructionBudget.query.get_or_404(budget_id)
-    if budget.property_id != property_id:
-        flash('アクセス権限がありません')
-        return redirect(url_for('main.property_detail', property_id=property_id))
-
+    
+    construction_budget = ConstructionBudget.query.get_or_404(budget_id)
+    if construction_budget.property_id != id:
+        flash('この工種予算にアクセスする権限がありません。', 'error')
+        return redirect(url_for('main.property_detail', id=id))
+    
     try:
-        db.session.delete(budget)
+        db.session.delete(construction_budget)
         db.session.commit()
-        flash('工事予算を削除しました')
+        flash('工種予算を削除しました。', 'success')
     except Exception as e:
         db.session.rollback()
-        flash('工事予算の削除に失敗しました')
-
-    return redirect(url_for('main.property_detail', property_id=property_id)) 
+        flash('工種予算の削除に失敗しました。', 'error')
+    
+    return redirect(url_for('main.property_detail', id=id)) 
