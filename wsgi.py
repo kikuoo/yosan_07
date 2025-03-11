@@ -59,119 +59,31 @@ def init_database():
         print(f"データベース名: [{db_name}]")
         print(f"ベースURL: {base_url}")
         
-        # まずpostgresデータベースに接続
-        postgres_url = f"{base_url}/postgres"
-        engine = create_engine(postgres_url, isolation_level="AUTOCOMMIT")
-        
-        try:
-            # データベースが存在するか確認
-            with engine.connect() as conn:
-                # データベース名をエスケープ
-                escaped_db_name = db_name.replace("'", "''")
-                result = conn.execute(text(
-                    f"SELECT 1 FROM pg_database WHERE datname = '{escaped_db_name}'"
-                ))
-                exists = result.scalar() is not None
-                
-                if not exists:
-                    print(f"データベース {db_name} が存在しないため、作成します")
-                    # 既存の接続を全て切断
-                    conn.execute(text(f"""
-                        SELECT pg_terminate_backend(pid)
-                        FROM pg_stat_activity
-                        WHERE datname = '{escaped_db_name}'
-                    """))
-                    # データベースを作成
-                    conn.execute(text(f'CREATE DATABASE "{db_name.strip()}"'))
-                    print(f"データベース {db_name} を作成しました")
-                else:
-                    print(f"データベース {db_name} は既に存在します")
-                    # 既存の接続を全て切断（現在の接続を除く）
-                    conn.execute(text(f"""
-                        SELECT pg_terminate_backend(pid)
-                        FROM pg_stat_activity
-                        WHERE datname = '{escaped_db_name}'
-                        AND pid <> pg_backend_pid()
-                    """))
-                
-                # データベースが本当に存在するか確認
-                check_query = text(f'SELECT 1 FROM pg_database WHERE datname = :db_name')
-                result = conn.execute(check_query, {'db_name': db_name.strip()})
-                if not result.scalar():
-                    raise Exception(f"データベース {db_name} の作成を確認できません")
-                
-        except Exception as e:
-            print(f"データベース作成エラー: {str(e)}")
-            raise
-
-        # 少し待機してデータベースの作成が完了するのを待つ
-        time.sleep(5)
-
-        # アプリケーションのデータベースに接続
-        app_engine = create_engine(
-            database_url,
-            pool_pre_ping=True,
-            pool_size=5,
-            max_overflow=10,
-            pool_timeout=30,
-            connect_args={'connect_timeout': 10}
-        )
-        
-        # 接続を確立するまで複数回試行
-        max_retries = 5
-        retry_count = 0
-        last_error = None
-        
-        while retry_count < max_retries:
-            try:
-                # 接続テスト
-                with app_engine.connect() as conn:
-                    # テーブルの存在確認
-                    result = conn.execute(text("""
-                        SELECT table_name 
-                        FROM information_schema.tables 
-                        WHERE table_schema = 'public'
-                        AND table_type = 'BASE TABLE'
-                    """))
-                    tables = [row[0] for row in result]
-                    print(f"存在するテーブル: {tables}")
-                    
-                    if not tables:
-                        print("テーブルが存在しないため、作成します")
-                        with app.app_context():
-                            db.create_all()
-                            db.session.commit()
-                        print("テーブルを作成しました")
-                    else:
-                        print("テーブルは既に存在します")
-                    
-                    print("データベース接続テスト成功")
-                    break  # 成功したらループを抜ける
-                    
-            except Exception as e:
-                last_error = e
-                retry_count += 1
-                print(f"接続試行 {retry_count}/{max_retries} 失敗: {str(e)}")
-                time.sleep(3)  # 再試行前に待機
-                
-                # データベースが存在しない場合は、作成を試みる
-                if "database" in str(e).lower() and "does not exist" in str(e).lower():
-                    try:
-                        with engine.connect() as conn:
-                            conn.execute(text(f'CREATE DATABASE "{db_name.strip()}"'))
-                            print(f"データベース {db_name} を再作成しました")
-                            time.sleep(3)  # データベース作成後に待機
-                    except Exception as create_error:
-                        print(f"データベース再作成エラー: {str(create_error)}")
-                
-        if retry_count >= max_retries:
-            print(f"データベース接続テストエラー: {str(last_error)}")
-            raise last_error
-
         with app.app_context():
+            # テーブルのスキーマを確認
+            try:
+                result = db.session.execute(text("""
+                    SELECT column_name, character_maximum_length 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'user' AND column_name = 'password_hash'
+                """))
+                column_info = result.fetchone()
+                
+                # password_hashカラムの長さが512未満の場合、テーブルを再作成
+                if not column_info or column_info[1] < 512:
+                    print("テーブルのスキーマを更新します")
+                    db.session.execute(text('DROP TABLE IF EXISTS "user" CASCADE'))
+                    db.session.commit()
+                    db.create_all()
+                    print("テーブルを再作成しました")
+            except Exception as e:
+                print(f"テーブルスキーマの確認中にエラーが発生しました: {str(e)}")
+                db.create_all()
+                print("テーブルを作成しました")
+
             try:
                 # 管理者ユーザーの確認と作成
-                from app.models import User  # User モデルを直接インポート
+                from app.models import User
                 if not User.query.filter_by(username='admin').first():
                     admin = User(
                         username='admin',
@@ -187,6 +99,8 @@ def init_database():
                 
             except Exception as e:
                 print(f"テーブル初期化エラー: {str(e)}")
+                import traceback
+                print(f"スタックトレース: {traceback.format_exc()}")
                 db.session.rollback()
                 raise
             
