@@ -2,6 +2,7 @@ from app import app
 from app import db
 from sqlalchemy import text
 import os
+from urllib.parse import urlparse
 
 # アプリケーション起動時にデータベースを初期化
 def check_database_connection():
@@ -50,16 +51,17 @@ def init_database():
                 if database_url.startswith("postgres://"):
                     database_url = database_url.replace("postgres://", "postgresql://", 1)
                 
-                # データベース名を取得（改行文字を削除）
-                db_name = database_url.split('/')[-1].strip()
-                base_url = database_url.rsplit('/', 1)[0]
+                # URLをパース
+                parsed = urlparse(database_url)
+                db_name = parsed.path.lstrip('/').strip()  # 改行文字を削除
+                base_url = f"{parsed.scheme}://{parsed.netloc}/postgres"
                 
                 print(f"データベース名: {db_name}")
                 print(f"ベースURL: {base_url}")
                 
                 # デフォルトのデータベースに接続して新しいデータベースを作成
                 from sqlalchemy import create_engine
-                engine = create_engine(base_url + '/postgres')
+                engine = create_engine(base_url)
                 with engine.connect() as conn:
                     conn.execute(text('commit'))
                     conn.execute(text(f'CREATE DATABASE {db_name}'))
