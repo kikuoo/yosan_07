@@ -171,7 +171,7 @@ def init_database():
         with app.app_context():
             try:
                 # 管理者ユーザーの確認と作成
-                from app import User
+                from app.models import User  # User モデルを直接インポート
                 if not User.query.filter_by(username='admin').first():
                     admin = User(
                         username='admin',

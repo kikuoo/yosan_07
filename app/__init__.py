@@ -35,6 +35,7 @@ def create_app():
     
     # モデルのインポート
     from app import models
+    from app.models import User
     
     # ブループリントの登録
     from app.routes import main
@@ -45,4 +46,7 @@ def create_app():
     return app
 
 # アプリケーションインスタンスを作成
-app = create_app() 
+app = create_app()
+
+# User モデルをグローバルにエクスポート
+from app.models import User 
