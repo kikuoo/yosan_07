@@ -44,18 +44,18 @@ def init_database():
         if not database_url:
             raise Exception("DATABASE_URL が設定されていません")
 
-        # 改行文字を削除
-        database_url = database_url.strip()
+        # 改行文字を削除し、URLを正規化
+        database_url = database_url.strip().replace('\n', '').replace('\r', '')
         
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)
         
         # URLをパース
         parsed = urlparse(database_url)
-        db_name = parsed.path.lstrip('/').strip()  # 改行文字を削除
+        db_name = parsed.path.lstrip('/').strip().replace('\n', '').replace('\r', '')
         base_url = f"{parsed.scheme}://{parsed.netloc}"
         
-        print(f"データベース名: {db_name}")
+        print(f"データベース名: [{db_name}]")  # 角括弧で囲んで表示
         print(f"ベースURL: {base_url}")
         
         # まずpostgresデータベースに接続
@@ -65,25 +65,48 @@ def init_database():
         try:
             # データベースが存在するか確認
             with engine.connect() as conn:
+                # トランザクションをコミット
                 conn.execute(text("commit"))
+                
+                # データベースの存在確認（エスケープ処理を追加）
+                escaped_db_name = db_name.replace("'", "''")
                 result = conn.execute(text(
-                    f"SELECT 1 FROM pg_database WHERE datname = '{db_name}'"
+                    f"SELECT 1 FROM pg_database WHERE datname = '{escaped_db_name}'"
                 ))
                 exists = result.scalar() is not None
                 
                 if not exists:
                     print(f"データベース {db_name} が存在しないため、作成します")
+                    # 新しいトランザクションを開始
                     conn.execute(text("commit"))
-                    conn.execute(text(f'CREATE DATABASE {db_name}'))
+                    # データベース名をダブルクォートで囲む
+                    conn.execute(text(f'CREATE DATABASE "{db_name}"'))
                     conn.execute(text("commit"))
                     print(f"データベース {db_name} を作成しました")
                 else:
                     print(f"データベース {db_name} は既に存在します")
+                    
+                # データベースが本当に存在するか確認
+                check_query = text(f'SELECT 1 FROM pg_database WHERE datname = :db_name')
+                result = conn.execute(check_query, {'db_name': db_name})
+                if not result.scalar():
+                    raise Exception(f"データベース {db_name} の作成を確認できません")
+                
         except Exception as e:
             print(f"データベース作成エラー: {str(e)}")
             raise
 
         # アプリケーションのデータベースに接続
+        app_engine = create_engine(database_url)
+        try:
+            # 接続テスト
+            with app_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                print("データベース接続テスト成功")
+        except Exception as e:
+            print(f"データベース接続テストエラー: {str(e)}")
+            raise
+
         with app.app_context():
             try:
                 # テーブルの存在確認
