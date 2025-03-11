@@ -75,6 +75,13 @@ def init_database():
                 
                 if not exists:
                     print(f"データベース {db_name} が存在しないため、作成します")
+                    # 既存の接続を全て切断
+                    conn.execute(text(f"""
+                        SELECT pg_terminate_backend(pid)
+                        FROM pg_stat_activity
+                        WHERE datname = '{escaped_db_name}'
+                    """))
+                    # データベースを作成
                     conn.execute(text(f'CREATE DATABASE "{db_name}"'))
                     print(f"データベース {db_name} を作成しました")
                 else:
@@ -91,10 +98,10 @@ def init_database():
             raise
 
         # 少し待機してデータベースの作成が完了するのを待つ
-        time.sleep(2)
+        time.sleep(3)
 
         # アプリケーションのデータベースに接続
-        app_engine = create_engine(database_url)
+        app_engine = create_engine(database_url, pool_pre_ping=True)
         try:
             # 接続テスト
             with app_engine.connect() as conn:
@@ -112,6 +119,7 @@ def init_database():
                     print("テーブルが存在しないため、作成します")
                     with app.app_context():
                         db.create_all()
+                        db.session.commit()
                     print("テーブルを作成しました")
                 else:
                     print("テーブルは既に存在します")
