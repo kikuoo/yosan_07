@@ -108,8 +108,8 @@
                             <table class="table">
                                 <thead>
                                     <tr>
-                                        <th>工事コード</th>
-                                        <th>工事名</th>
+                                        <th>工種コード</th>
+                                        <th>工種名</th>
                                         <th>予算額</th>
                                         <th>操作</th>
                                     </tr>
@@ -123,11 +123,69 @@
                                             <td>{{ budget.amount | format_currency }}</td>
                                             <td>
                                                 <div class="btn-group">
+                                                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#paymentModal{{ budget.id }}">支払入力</button>
                                                     <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editBudgetModal{{ budget.id }}">編集</button>
                                                     <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal{{ budget.id }}">削除</button>
                                                 </div>
                                             </td>
                                         </tr>
+
+                                        <!-- 支払い入力モーダル -->
+                                        <div class="modal fade" id="paymentModal{{ budget.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">支払い入力 - {{ budget.name }}</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <form action="{{ url_for('main.add_payment', id=property.id, budget_id=budget.id) }}" method="POST" id="paymentForm{{ budget.id }}">
+                                                            <div class="row mb-3">
+                                                                <div class="col-md-6">
+                                                                    <label for="payment_year{{ budget.id }}" class="form-label">支払年</label>
+                                                                    <select class="form-select" id="payment_year{{ budget.id }}" name="payment_year" required>
+                                                                        {% for year in range(2024, 2031) %}
+                                                                            <option value="{{ year }}">{{ year }}</option>
+                                                                        {% endfor %}
+                                                                    </select>
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <label for="payment_month{{ budget.id }}" class="form-label">支払月</label>
+                                                                    <select class="form-select" id="payment_month{{ budget.id }}" name="payment_month" required>
+                                                                        {% for month in range(1, 13) %}
+                                                                            <option value="{{ month }}">{{ month }}</option>
+                                                                        {% endfor %}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="vendor_name{{ budget.id }}" class="form-label">支払業者名</label>
+                                                                <input type="text" class="form-control" id="vendor_name{{ budget.id }}" name="vendor_name" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">支払区分</label>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="payment_type{{ budget.id }}" id="contract{{ budget.id }}" value="contract" checked>
+                                                                    <label class="form-check-label" for="contract{{ budget.id }}">請負</label>
+                                                                </div>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="payment_type{{ budget.id }}" id="non_contract{{ budget.id }}" value="non_contract">
+                                                                    <label class="form-check-label" for="non_contract{{ budget.id }}">請負外</label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="payment_amount{{ budget.id }}" class="form-label">支払金額</label>
+                                                                <input type="number" class="form-control" id="payment_amount{{ budget.id }}" name="payment_amount" required>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                                        <button type="submit" form="paymentForm{{ budget.id }}" class="btn btn-primary">登録</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         {% endfor %}
                                     {% else %}
                                         <tr>
@@ -224,10 +282,6 @@
                         <div class="mb-3">
                             <label for="budget_amount" class="form-label">予算額</label>
                             <input type="number" class="form-control" id="budget_amount" name="amount" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="remaining_amount" class="form-label">予算残額</label>
-                            <input type="number" class="form-control" id="remaining_amount" name="remaining_amount" required>
                         </div>
                     </form>
                 </div>
