@@ -129,6 +129,43 @@
                                                 </div>
                                             </td>
                                         </tr>
+                                        {% if budget.payments %}
+                                        <tr>
+                                            <td colspan="4">
+                                                <div class="ms-4">
+                                                    <h6 class="mb-2">支払い履歴</h6>
+                                                    <table class="table table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>支払年月</th>
+                                                                <th>支払業者</th>
+                                                                <th>支払区分</th>
+                                                                <th>支払金額</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for payment in budget.payments %}
+                                                            <tr>
+                                                                <td>{{ payment.year }}年{{ payment.month }}月</td>
+                                                                <td>{{ payment.vendor_name }}</td>
+                                                                <td>{{ '請負' if payment.payment_type == 'contract' else '請負外' }}</td>
+                                                                <td>{{ payment.amount | format_currency }}</td>
+                                                            </tr>
+                                                            {% endfor %}
+                                                            <tr class="table-info">
+                                                                <td colspan="3" class="text-end">支払合計</td>
+                                                                <td>{{ budget.payments | sum(attribute='amount') | format_currency }}</td>
+                                                            </tr>
+                                                            <tr class="table-warning">
+                                                                <td colspan="3" class="text-end">予算残額</td>
+                                                                <td>{{ (budget.amount - (budget.payments | sum(attribute='amount'))) | format_currency }}</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
 
                                         <!-- 支払い入力モーダル -->
                                         <div class="modal fade" id="paymentModal{{ budget.id }}" tabindex="-1">

@@ -35,7 +35,6 @@ class ConstructionBudget(db.Model):
     code = db.Column(db.String(20), nullable=False)  # 工種コード
     name = db.Column(db.String(200), nullable=False)  # 工種名
     amount = db.Column(db.Integer, nullable=False)  # 予算額
-    remaining_amount = db.Column(db.Integer, nullable=False)  # 予算残額
     property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=False)
     property = db.relationship('Property', backref=db.backref('construction_budgets', lazy=True))
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())

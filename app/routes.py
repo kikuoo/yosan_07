@@ -114,24 +114,21 @@ def add_construction_budget(id):
     code = request.form.get('code')
     name = request.form.get('name')
     amount = request.form.get('amount')
-    remaining_amount = request.form.get('remaining_amount')
     
-    if not all([code, name, amount, remaining_amount]):
+    if not all([code, name, amount]):
         flash('すべての項目を入力してください。', 'error')
         return redirect(url_for('main.property_detail', id=id))
     
     try:
         amount = int(amount)
-        remaining_amount = int(remaining_amount)
     except ValueError:
-        flash('予算額と予算残額は数値で入力してください。', 'error')
+        flash('予算額は数値で入力してください。', 'error')
         return redirect(url_for('main.property_detail', id=id))
     
     construction_budget = ConstructionBudget(
         code=code,
         name=name,
         amount=amount,
-        remaining_amount=remaining_amount,
         property_id=id
     )
     
