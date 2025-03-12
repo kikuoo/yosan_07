@@ -152,7 +152,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form action="{{ url_for('main.add_construction_budget', property_id=property.id) }}" method="POST" id="addConstructionBudgetForm">
+                    <form action="{{ url_for('main.add_construction_budget', id=property.id) }}" method="POST" id="addConstructionBudgetForm">
                         <div class="mb-3">
                             <label for="construction_code" class="form-label">工事コード</label>
                             <input type="text" class="form-control" id="construction_code" name="code" required>
