@@ -154,12 +154,72 @@
                 <div class="modal-body">
                     <form action="{{ url_for('main.add_construction_budget', id=property.id) }}" method="POST" id="addConstructionBudgetForm">
                         <div class="mb-3">
-                            <label for="construction_code" class="form-label">工事コード</label>
-                            <input type="text" class="form-control" id="construction_code" name="code" required>
+                            <label for="construction_code" class="form-label">工種コード</label>
+                            <select class="form-select" id="construction_code" name="code" required onchange="updateConstructionName()">
+                                <option value="">選択してください</option>
+                                <option value="42-11">42-11 木工事</option>
+                                <option value="42-12">42-12 屋根工事</option>
+                                <option value="42-13">42-13 外装工事</option>
+                                <option value="42-14">42-14 金属工事</option>
+                                <option value="42-15">42-15 左官工事</option>
+                                <option value="42-16">42-16 木製建具工事</option>
+                                <option value="42-17">42-17 金属製建具工事</option>
+                                <option value="42-18">42-18 硝子工事</option>
+                                <option value="42-19">42-19 塗装吹付工事</option>
+                                <option value="42-20">42-20 内装工事</option>
+                                <option value="42-21">42-21 家具・雑工事</option>
+                                <option value="42-22">42-22 仮設事務所工事</option>
+                                <option value="42-23">42-23 プール工事</option>
+                                <option value="42-24">42-24 サイン工事</option>
+                                <option value="42-25">42-25 厨房機器工事</option>
+                                <option value="42-26">42-26 既存改修工事</option>
+                                <option value="42-27">42-27 特殊付帯工事</option>
+                                <option value="42-28">42-28 住宅設備工事</option>
+                                <option value="42-29">42-29 雑工事</option>
+                                <option value="42-90">42-90 建築工事一式</option>
+                                <option value="43-01">43-01 解体工事</option>
+                                <option value="43-02">43-02 外構開発工事</option>
+                                <option value="43-03">43-03 附帯建物工事</option>
+                                <option value="43-04">43-04 別途外構工事</option>
+                                <option value="43-05">43-05 山留工事</option>
+                                <option value="43-06">43-06 杭工事</option>
+                                <option value="43-90">43-90 解体外構附帯工事一式</option>
+                                <option value="44-01">44-01 電気設備工事</option>
+                                <option value="44-02">44-02 給排水衛生設備工事</option>
+                                <option value="44-03">44-03 空調換気設備工事</option>
+                                <option value="44-04">44-04 浄化槽工事</option>
+                                <option value="44-05">44-05 昇降機工事</option>
+                                <option value="44-06">44-06 オイル配管設備工事</option>
+                                <option value="44-07">44-07 厨房機器工事</option>
+                                <option value="44-08">44-08 ガス設備工事</option>
+                                <option value="44-09">44-09 消防設備工事</option>
+                                <option value="44-90">44-90 設備工事一式</option>
+                                <option value="44-91">44-91 諸経費</option>
+                                <option value="45-01">45-01 追加変更工事</option>
+                                <option value="45-02">45-02 追加変更工事２</option>
+                                <option value="45-10">45-10 その他工事</option>
+                                <option value="45-90">45-90 追加変更一式</option>
+                                <option value="46-01">46-01 建築一式工事</option>
+                                <option value="46-02">46-02 許認可代顔料</option>
+                                <option value="46-10">46-10 その他工事</option>
+                                <option value="61-01">61-01 管理給与</option>
+                                <option value="61-02">61-02 共通給与</option>
+                                <option value="61-03">61-03 舗装給与</option>
+                                <option value="61-04">61-04 建設業退職金共済掛金</option>
+                                <option value="61-06">61-06 油脂費</option>
+                                <option value="61-10">61-10 法定福利費（労災保険）</option>
+                                <option value="61-15">61-15 事務用品費</option>
+                                <option value="61-16">61-16 通信交通費</option>
+                                <option value="61-18">61-18 租税公課（印紙）</option>
+                                <option value="61-20">61-20 保険料（工事保険）</option>
+                                <option value="61-22">61-22 福利厚生費（被服・薬品）</option>
+                                <option value="61-25">61-25 設計費（施工図費）</option>
+                                <option value="61-30">61-30 雑費（打ち合わせ・式典）</option>
+                            </select>
                         </div>
                         <div class="mb-3">
-                            <label for="construction_name" class="form-label">工事名</label>
-                            <input type="text" class="form-control" id="construction_name" name="name" required>
+                            <label for="construction_name" class="form-label">工種名</label>
+                            <input type="text" class="form-control" id="construction_name" name="name" required readonly>
                         </div>
                         <div class="mb-3">
                             <label for="budget_amount" class="form-label">予算額</label>
@@ -181,5 +241,17 @@
 
     <!-- Bootstrap JS and dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateConstructionName() {
+            const select = document.getElementById('construction_code');
+            const nameInput = document.getElementById('construction_name');
+            const selectedOption = select.options[select.selectedIndex];
+            if (selectedOption.value) {
+                nameInput.value = selectedOption.text.substring(6); // コードと空白を除いた工種名を設定
+            } else {
+                nameInput.value = '';
+            }
+        }
+    </script>
 </body>
 </html> 
