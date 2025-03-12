@@ -276,6 +276,104 @@
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <!-- 支払い編集モーダル -->
+                                        {% for payment in budget.payments %}
+                                        <div class="modal fade" id="editPaymentModal{{ payment.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">支払い編集</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <form action="{{ url_for('main.edit_payment', id=property.id, budget_id=budget.id, payment_id=payment.id) }}" method="POST" id="editPaymentForm{{ payment.id }}">
+                                                            <div class="row mb-3">
+                                                                <div class="col-md-6">
+                                                                    <label for="edit_payment_year{{ payment.id }}" class="form-label">支払年</label>
+                                                                    <select class="form-select" id="edit_payment_year{{ payment.id }}" name="payment_year" required>
+                                                                        {% for year in range(2024, 2031) %}
+                                                                            <option value="{{ year }}" {% if year == payment.year %}selected{% endif %}>{{ year }}</option>
+                                                                        {% endfor %}
+                                                                    </select>
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <label for="edit_payment_month{{ payment.id }}" class="form-label">支払月</label>
+                                                                    <select class="form-select" id="edit_payment_month{{ payment.id }}" name="payment_month" required>
+                                                                        {% for month in range(1, 13) %}
+                                                                            <option value="{{ month }}" {% if month == payment.month %}selected{% endif %}>{{ month }}</option>
+                                                                        {% endfor %}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="edit_vendor_name{{ payment.id }}" class="form-label">支払業者名</label>
+                                                                <input type="text" class="form-control" id="edit_vendor_name{{ payment.id }}" name="vendor_name" value="{{ payment.vendor_name }}" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">支払区分</label>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="payment_type" id="edit_contract{{ payment.id }}" value="contract" {% if payment.payment_type == 'contract' %}checked{% endif %}>
+                                                                    <label class="form-check-label" for="edit_contract{{ payment.id }}">請負</label>
+                                                                </div>
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input" type="radio" name="payment_type" id="edit_non_contract{{ payment.id }}" value="non_contract" {% if payment.payment_type == 'non_contract' %}checked{% endif %}>
+                                                                    <label class="form-check-label" for="edit_non_contract{{ payment.id }}">請負外</label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="edit_payment_amount{{ payment.id }}" class="form-label">支払金額</label>
+                                                                <input type="number" class="form-control" id="edit_payment_amount{{ payment.id }}" name="payment_amount" value="{{ payment.amount }}" required>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                                        <button type="submit" form="editPaymentForm{{ payment.id }}" class="btn btn-primary">更新</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 支払い削除確認モーダル -->
+                                        <div class="modal fade" id="deletePaymentModal{{ payment.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">支払い削除の確認</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>以下の支払い情報を削除してもよろしいですか？</p>
+                                                        <table class="table table-bordered">
+                                                            <tr>
+                                                                <th>支払年月</th>
+                                                                <td>{{ payment.year }}年{{ payment.month }}月</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <th>支払業者</th>
+                                                                <td>{{ payment.vendor_name }}</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <th>支払区分</th>
+                                                                <td>{{ '請負' if payment.payment_type == 'contract' else '請負外' }}</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <th>支払金額</th>
+                                                                <td>{{ payment.amount | format_currency }}</td>
+                                                            </tr>
+                                                        </table>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                                        <form action="{{ url_for('main.delete_payment', id=property.id, budget_id=budget.id, payment_id=payment.id) }}" method="POST" style="display: inline;">
+                                                            <button type="submit" class="btn btn-danger">削除する</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
                                         {% endfor %}
                                     {% else %}
                                         <tr>
@@ -397,103 +495,5 @@
             }
         }
     </script>
-
-    <!-- 支払い編集モーダル -->
-    {% for payment in budget.payments %}
-    <div class="modal fade" id="editPaymentModal{{ payment.id }}" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">支払い編集</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form action="{{ url_for('main.edit_payment', id=property.id, budget_id=budget.id, payment_id=payment.id) }}" method="POST" id="editPaymentForm{{ payment.id }}">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="edit_payment_year{{ payment.id }}" class="form-label">支払年</label>
-                                <select class="form-select" id="edit_payment_year{{ payment.id }}" name="payment_year" required>
-                                    {% for year in range(2024, 2031) %}
-                                        <option value="{{ year }}" {% if year == payment.year %}selected{% endif %}>{{ year }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="edit_payment_month{{ payment.id }}" class="form-label">支払月</label>
-                                <select class="form-select" id="edit_payment_month{{ payment.id }}" name="payment_month" required>
-                                    {% for month in range(1, 13) %}
-                                        <option value="{{ month }}" {% if month == payment.month %}selected{% endif %}>{{ month }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="edit_vendor_name{{ payment.id }}" class="form-label">支払業者名</label>
-                            <input type="text" class="form-control" id="edit_vendor_name{{ payment.id }}" name="vendor_name" value="{{ payment.vendor_name }}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">支払区分</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_type" id="edit_contract{{ payment.id }}" value="contract" {% if payment.payment_type == 'contract' %}checked{% endif %}>
-                                <label class="form-check-label" for="edit_contract{{ payment.id }}">請負</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_type" id="edit_non_contract{{ payment.id }}" value="non_contract" {% if payment.payment_type == 'non_contract' %}checked{% endif %}>
-                                <label class="form-check-label" for="edit_non_contract{{ payment.id }}">請負外</label>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="edit_payment_amount{{ payment.id }}" class="form-label">支払金額</label>
-                            <input type="number" class="form-control" id="edit_payment_amount{{ payment.id }}" name="payment_amount" value="{{ payment.amount }}" required>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                    <button type="submit" form="editPaymentForm{{ payment.id }}" class="btn btn-primary">更新</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 支払い削除確認モーダル -->
-    <div class="modal fade" id="deletePaymentModal{{ payment.id }}" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">支払い削除の確認</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p>以下の支払い情報を削除してもよろしいですか？</p>
-                    <table class="table table-bordered">
-                        <tr>
-                            <th>支払年月</th>
-                            <td>{{ payment.year }}年{{ payment.month }}月</td>
-                        </tr>
-                        <tr>
-                            <th>支払業者</th>
-                            <td>{{ payment.vendor_name }}</td>
-                        </tr>
-                        <tr>
-                            <th>支払区分</th>
-                            <td>{{ '請負' if payment.payment_type == 'contract' else '請負外' }}</td>
-                        </tr>
-                        <tr>
-                            <th>支払金額</th>
-                            <td>{{ payment.amount | format_currency }}</td>
-                        </tr>
-                    </table>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                    <form action="{{ url_for('main.delete_payment', id=property.id, budget_id=budget.id, payment_id=payment.id) }}" method="POST" style="display: inline;">
-                        <button type="submit" class="btn btn-danger">削除する</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
 </body>
 </html> 

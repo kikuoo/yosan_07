@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from app import db
 from app.models import Property, ConstructionBudget, CONSTRUCTION_TYPES, Payment
@@ -247,4 +247,41 @@ def add_payment(id, budget_id):
         db.session.rollback()
         flash('支払いの登録に失敗しました。', 'error')
     
+    return redirect(url_for('main.property_detail', id=id))
+
+@main.route('/property/<int:id>/budget/<int:budget_id>/payment/<int:payment_id>/edit', methods=['POST'])
+@login_required
+def edit_payment(id, budget_id, payment_id):
+    property = Property.query.get_or_404(id)
+    budget = ConstructionBudget.query.get_or_404(budget_id)
+    payment = Payment.query.get_or_404(payment_id)
+
+    # 支払いが該当の予算に属していることを確認
+    if payment.construction_budget_id != budget_id or budget.property_id != id:
+        abort(404)
+
+    payment.year = request.form.get('payment_year', type=int)
+    payment.month = request.form.get('payment_month', type=int)
+    payment.vendor_name = request.form.get('vendor_name')
+    payment.payment_type = request.form.get('payment_type')
+    payment.amount = request.form.get('payment_amount', type=int)
+
+    db.session.commit()
+    flash('支払い情報を更新しました')
+    return redirect(url_for('main.property_detail', id=id))
+
+@main.route('/property/<int:id>/budget/<int:budget_id>/payment/<int:payment_id>/delete', methods=['POST'])
+@login_required
+def delete_payment(id, budget_id, payment_id):
+    property = Property.query.get_or_404(id)
+    budget = ConstructionBudget.query.get_or_404(budget_id)
+    payment = Payment.query.get_or_404(payment_id)
+
+    # 支払いが該当の予算に属していることを確認
+    if payment.construction_budget_id != budget_id or budget.property_id != id:
+        abort(404)
+
+    db.session.delete(payment)
+    db.session.commit()
+    flash('支払い情報を削除しました')
     return redirect(url_for('main.property_detail', id=id)) 
