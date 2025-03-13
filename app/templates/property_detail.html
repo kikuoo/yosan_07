@@ -348,7 +348,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form action="{{ url_for('main.add_payment', id=property.id, budget_id=budget.id) }}" method="POST" id="addPaymentForm{{ budget.id }}">
+                    <form action="{{ url_for('main.add_payment', id=property.id, budget_id=budget.id) }}" method="POST" id="addPaymentForm{{ budget.id }}" onsubmit="return validateForm(this)">
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="payment_year{{ budget.id }}" class="form-label">支払年</label>
@@ -374,17 +374,17 @@
                         <div class="mb-3">
                             <label class="form-label">支払区分</label>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_type" id="contract{{ budget.id }}" value="contract" checked>
+                                <input class="form-check-input" type="radio" name="payment_type" id="contract{{ budget.id }}" value="contract" checked required>
                                 <label class="form-check-label" for="contract{{ budget.id }}">請負</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="payment_type" id="non_contract{{ budget.id }}" value="non_contract">
+                                <input class="form-check-input" type="radio" name="payment_type" id="non_contract{{ budget.id }}" value="non_contract" required>
                                 <label class="form-check-label" for="non_contract{{ budget.id }}">請負外</label>
                             </div>
                         </div>
                         <div class="mb-3">
                             <label for="payment_amount{{ budget.id }}" class="form-label">支払金額</label>
-                            <input type="number" class="form-control" id="payment_amount{{ budget.id }}" name="payment_amount" required>
+                            <input type="number" class="form-control" id="payment_amount{{ budget.id }}" name="payment_amount" required min="0" step="1">
                         </div>
                     </form>
                 </div>
@@ -501,6 +501,26 @@
             } else {
                 nameInput.value = '';
             }
+        }
+
+        function validateForm(form) {
+            const year = form.querySelector('[name="payment_year"]').value;
+            const month = form.querySelector('[name="payment_month"]').value;
+            const vendorName = form.querySelector('[name="vendor_name"]').value;
+            const paymentType = form.querySelector('[name="payment_type"]:checked');
+            const amount = form.querySelector('[name="payment_amount"]').value;
+
+            if (!year || !month || !vendorName || !paymentType || !amount) {
+                alert('すべての項目を入力してください。');
+                return false;
+            }
+
+            if (amount <= 0) {
+                alert('支払金額は0より大きい値を入力してください。');
+                return false;
+            }
+
+            return true;
         }
     </script>
 </body>
