@@ -224,7 +224,7 @@ def add_payment(id, budget_id):
     payment_year = request.form.get('payment_year')
     payment_month = request.form.get('payment_month')
     vendor_name = request.form.get('vendor_name')
-    payment_type = request.form.get(f'payment_type{budget_id}')
+    payment_type = request.form.get('payment_type')
     payment_amount = request.form.get('payment_amount')
     
     if not all([payment_year, payment_month, vendor_name, payment_type, payment_amount]):
