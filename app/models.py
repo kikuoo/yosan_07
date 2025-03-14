@@ -44,9 +44,10 @@ class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     year = db.Column(db.Integer, nullable=False)  # 支払年
     month = db.Column(db.Integer, nullable=False)  # 支払月
-    vendor_name = db.Column(db.String(200), nullable=False)  # 支払業者名
-    payment_type = db.Column(db.String(20), nullable=False)  # 支払区分（請負/請負外）
+    vendor_name = db.Column(db.String(100), nullable=False)  # 支払業者名
+    payment_type = db.Column(db.String(20), nullable=False)  # 'contract' or 'non_contract'
     amount = db.Column(db.Integer, nullable=False)  # 支払金額
+    remarks = db.Column(db.Text, nullable=True)  # 備考欄を追加
     construction_budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
     construction_budget = db.relationship('ConstructionBudget', backref=db.backref('payments', lazy=True))
     created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())

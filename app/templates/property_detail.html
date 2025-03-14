@@ -121,9 +121,9 @@
                                         {% for budget in construction_budgets|sort(attribute='code') %}
                                         {% set total_payment = budget.payments|sum(attribute='amount') %}
                                         {% set remaining = budget.amount - total_payment %}
-                                        <tr>
-                                            <td>{{ budget.code }}</td>
-                                            <td>{{ budget.name }}</td>
+                                        <tr class="table-primary">
+                                            <td class="fw-bold fs-5">{{ budget.code }}</td>
+                                            <td class="fw-bold fs-5">{{ budget.name }}</td>
                                             <td>{{ budget.amount | format_currency }}</td>
                                             <td>{{ total_payment | format_currency }}</td>
                                             <td {% if remaining < 0 %}class="text-danger"{% endif %}>
@@ -154,6 +154,7 @@
                                                                     <th>支払年月</th>
                                                                     <th>支払業者</th>
                                                                     <th>支払金額</th>
+                                                                    <th>備考</th>
                                                                     <th>操作</th>
                                                                 </tr>
                                                             </thead>
@@ -163,6 +164,7 @@
                                                                     <td>{{ payment.year }}年{{ payment.month }}月</td>
                                                                     <td>{{ payment.vendor_name }}</td>
                                                                     <td>{{ payment.amount | format_currency }}</td>
+                                                                    <td>{{ payment.remarks or '' }}</td>
                                                                     <td>
                                                                         <div class="btn-group">
                                                                             <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editPaymentModal{{ payment.id }}">編集</button>
@@ -192,6 +194,7 @@
                                                                     <th>支払年月</th>
                                                                     <th>支払業者</th>
                                                                     <th>支払金額</th>
+                                                                    <th>備考</th>
                                                                     <th>操作</th>
                                                                 </tr>
                                                             </thead>
@@ -201,6 +204,7 @@
                                                                     <td>{{ payment.year }}年{{ payment.month }}月</td>
                                                                     <td>{{ payment.vendor_name }}</td>
                                                                     <td>{{ payment.amount | format_currency }}</td>
+                                                                    <td>{{ payment.remarks or '' }}</td>
                                                                     <td>
                                                                         <div class="btn-group">
                                                                             <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editPaymentModal{{ payment.id }}">編集</button>
@@ -326,6 +330,10 @@
                                 <label for="edit_payment_amount{{ payment.id }}" class="form-label">支払金額</label>
                                 <input type="number" class="form-control" id="edit_payment_amount{{ payment.id }}" name="payment_amount" value="{{ payment.amount }}" required>
                             </div>
+                            <div class="mb-3">
+                                <label for="edit_remarks{{ payment.id }}" class="form-label">備考</label>
+                                <textarea class="form-control" id="edit_remarks{{ payment.id }}" name="remarks" rows="3">{{ payment.remarks }}</textarea>
+                            </div>
                         </form>
                     </div>
                     <div class="modal-footer">
@@ -354,7 +362,7 @@
                                 <label for="payment_year{{ budget.id }}" class="form-label">支払年</label>
                                 <select class="form-select" id="payment_year{{ budget.id }}" name="payment_year" required>
                                     {% for year in range(2024, 2031) %}
-                                        <option value="{{ year }}">{{ year }}</option>
+                                        <option value="{{ year }}" {% if year == now.year %}selected{% endif %}>{{ year }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -362,7 +370,7 @@
                                 <label for="payment_month{{ budget.id }}" class="form-label">支払月</label>
                                 <select class="form-select" id="payment_month{{ budget.id }}" name="payment_month" required>
                                     {% for month in range(1, 13) %}
-                                        <option value="{{ month }}">{{ month }}</option>
+                                        <option value="{{ month }}" {% if month == now.month %}selected{% endif %}>{{ month }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -385,6 +393,10 @@
                         <div class="mb-3">
                             <label for="payment_amount{{ budget.id }}" class="form-label">支払金額</label>
                             <input type="number" class="form-control" id="payment_amount{{ budget.id }}" name="payment_amount" required min="0" step="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="remarks{{ budget.id }}" class="form-label">備考</label>
+                            <textarea class="form-control" id="remarks{{ budget.id }}" name="remarks" rows="3"></textarea>
                         </div>
                     </form>
                 </div>

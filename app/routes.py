@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app import db
 from app.models import Property, ConstructionBudget, CONSTRUCTION_TYPES, Payment
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 
@@ -58,10 +59,12 @@ def property_detail(id):
         return redirect(url_for('main.budgets'))
     
     construction_budgets = ConstructionBudget.query.filter_by(property_id=id).all()
+    now = datetime.now()
     return render_template('property_detail.html', 
                          property=property, 
                          construction_budgets=construction_budgets,
-                         construction_types=CONSTRUCTION_TYPES)
+                         construction_types=CONSTRUCTION_TYPES,
+                         now=now)
 
 @main.route('/property/<int:id>/edit', methods=['POST'])
 @login_required
@@ -226,9 +229,10 @@ def add_payment(id, budget_id):
     vendor_name = request.form.get('vendor_name')
     payment_type = request.form.get('payment_type')
     payment_amount = request.form.get('payment_amount')
+    remarks = request.form.get('remarks')
     
     if not all([payment_year, payment_month, vendor_name, payment_type, payment_amount]):
-        flash('すべての項目を入力してください。', 'error')
+        flash('必須項目をすべて入力してください。', 'error')
         return redirect(url_for('main.property_detail', id=id))
     
     try:
@@ -238,6 +242,7 @@ def add_payment(id, budget_id):
             vendor_name=vendor_name,
             payment_type=payment_type,
             amount=int(payment_amount),
+            remarks=remarks,
             construction_budget_id=budget_id
         )
         db.session.add(payment)
@@ -265,6 +270,7 @@ def edit_payment(id, budget_id, payment_id):
     payment.vendor_name = request.form.get('vendor_name')
     payment.payment_type = request.form.get('payment_type')
     payment.amount = request.form.get('payment_amount', type=int)
+    payment.remarks = request.form.get('remarks')
 
     db.session.commit()
     flash('支払い情報を更新しました')
