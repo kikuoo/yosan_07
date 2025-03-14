@@ -3,95 +3,45 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
 import os
-from urllib.parse import urlparse
 
 # データベースの設定
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 
-class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///yosan.db'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-def create_app(config_class=Config):
+def create_app():
     app = Flask(__name__)
-    app.config.from_object(config_class)
     
-    # データベースの設定
-    database_url = os.environ.get('DATABASE_URL', '').strip()
-    if not database_url:
-        database_url = 'sqlite:///yosan.db'
-    elif database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    # 基本設定
+    app.config['SECRET_KEY'] = 'dev'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///yosan.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev')
     
-    # セキュアなセッション設定を一時的に無効化
-    app.config['SESSION_COOKIE_SECURE'] = False
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    
-    # プロキシヘッダーの設定を調整
-    from werkzeug.middleware.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_port=1)
-    
-    # データベースとログインマネージャーの初期化
+    # データベースの初期化
     db.init_app(app)
     migrate.init_app(app, db)
+    
+    # ログインマネージャーの初期化
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     
-    # モデルのインポート
-    from app import models
-    from app.models import User
-    
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
-    
-    # メインブループリントの登録（先に登録）
+    # ブループリントの登録
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
-    app.logger.info('メインブループリントを登録しました')
     
-    # 認証ブループリントの登録
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.logger.info('認証ブループリントを登録しました')
-    
-    # テンプレートフィルターの登録
-    @app.template_filter('format_currency')
-    def format_currency(value):
-        if value is None:
-            return '0'
-        return f'{value:,}'
-    
-    # ルートの登録を確認
-    app.logger.info('登録されたルート:')
-    for rule in app.url_map.iter_rules():
-        app.logger.info(f'{rule.endpoint}: {rule.methods} {rule}')
     
     # エラーハンドラの登録
     @app.errorhandler(404)
     def not_found_error(error):
-        app.logger.error(f'404エラー: {request.url}')
-        if request.method == 'HEAD':
-            return '', 200
-        return render_template('error.html', error='ページが見つかりません'), 404
+        return '', 200 if request.method == 'HEAD' else 404
     
     @app.errorhandler(500)
     def internal_error(error):
-        app.logger.error(f'500エラー: {str(error)}')
-        return render_template('error.html', error='サーバーエラーが発生しました'), 500
+        return '', 500
     
     return app
 
 # アプリケーションインスタンスを作成
 app = create_app()
-
-# User モデルをグローバルにエクスポート
-from app.models import User
