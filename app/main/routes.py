@@ -4,19 +4,19 @@ from app import db
 from app.models import Property, ConstructionBudget, CONSTRUCTION_TYPES, Payment
 from datetime import datetime
 
-main = Blueprint('main', __name__)
+bp = Blueprint('main', __name__)
 
-@main.route('/')
+@bp.route('/')
 def index():
     return render_template('index.html')
 
-@main.route('/budgets')
+@bp.route('/budgets')
 @login_required
 def budgets():
     properties = Property.query.filter_by(user_id=current_user.id).all()
     return render_template('budgets.html', properties=properties)
 
-@main.route('/property/add', methods=['POST'])
+@bp.route('/property/add', methods=['POST'])
 @login_required
 def add_property():
     code = request.form.get('code')
@@ -50,7 +50,7 @@ def add_property():
 
     return redirect(url_for('main.budgets'))
 
-@main.route('/property/<int:id>')
+@bp.route('/property/<int:id>')
 @login_required
 def property_detail(id):
     property = Property.query.get_or_404(id)
@@ -66,7 +66,7 @@ def property_detail(id):
                          construction_types=CONSTRUCTION_TYPES,
                          now=now)
 
-@main.route('/property/<int:id>/edit', methods=['POST'])
+@bp.route('/property/<int:id>/edit', methods=['POST'])
 @login_required
 def edit_property(id):
     property = Property.query.get_or_404(id)
@@ -88,7 +88,7 @@ def edit_property(id):
 
     return redirect(url_for('main.budgets'))
 
-@main.route('/property/<int:id>/delete', methods=['POST'])
+@bp.route('/property/<int:id>/delete', methods=['POST'])
 @login_required
 def delete_property(id):
     property = Property.query.get_or_404(id)
@@ -106,7 +106,7 @@ def delete_property(id):
 
     return redirect(url_for('main.budgets'))
 
-@main.route('/property/<int:id>/construction_budget', methods=['POST'])
+@bp.route('/property/<int:id>/construction_budget', methods=['POST'])
 @login_required
 def add_construction_budget(id):
     property = Property.query.get_or_404(id)
@@ -145,7 +145,7 @@ def add_construction_budget(id):
     
     return redirect(url_for('main.property_detail', id=id))
 
-@main.route('/property/<int:id>/construction_budget/<int:budget_id>', methods=['POST'])
+@bp.route('/property/<int:id>/construction_budget/<int:budget_id>', methods=['POST'])
 @login_required
 def update_construction_budget(id, budget_id):
     property = Property.query.get_or_404(id)
@@ -188,7 +188,7 @@ def update_construction_budget(id, budget_id):
     
     return redirect(url_for('main.property_detail', id=id))
 
-@main.route('/property/<int:id>/construction_budget/<int:budget_id>/delete', methods=['POST'])
+@bp.route('/property/<int:id>/construction_budget/<int:budget_id>/delete', methods=['POST'])
 @login_required
 def delete_construction_budget(id, budget_id):
     property = Property.query.get_or_404(id)
@@ -211,7 +211,7 @@ def delete_construction_budget(id, budget_id):
     
     return redirect(url_for('main.property_detail', id=id))
 
-@main.route('/property/<int:id>/construction_budget/<int:budget_id>/payment', methods=['POST'])
+@bp.route('/property/<int:id>/construction_budget/<int:budget_id>/payment', methods=['POST'])
 @login_required
 def add_payment(id, budget_id):
     property = Property.query.get_or_404(id)
@@ -254,7 +254,7 @@ def add_payment(id, budget_id):
     
     return redirect(url_for('main.property_detail', id=id))
 
-@main.route('/property/<int:id>/budget/<int:budget_id>/payment/<int:payment_id>/edit', methods=['POST'])
+@bp.route('/property/<int:id>/budget/<int:budget_id>/payment/<int:payment_id>/edit', methods=['POST'])
 @login_required
 def edit_payment(id, budget_id, payment_id):
     property = Property.query.get_or_404(id)
@@ -276,7 +276,7 @@ def edit_payment(id, budget_id, payment_id):
     flash('支払い情報を更新しました')
     return redirect(url_for('main.property_detail', id=id))
 
-@main.route('/property/<int:id>/budget/<int:budget_id>/payment/<int:payment_id>/delete', methods=['POST'])
+@bp.route('/property/<int:id>/budget/<int:budget_id>/payment/<int:payment_id>/delete', methods=['POST'])
 @login_required
 def delete_payment(id, budget_id, payment_id):
     property = Property.query.get_or_404(id)
