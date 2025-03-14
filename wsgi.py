@@ -85,5 +85,8 @@ def init_database():
 # アプリケーション起動時にデータベースを初期化
 init_database()
 
+# アプリケーションをエクスポート
+application = app
+
 if __name__ == '__main__':
     app.run(debug=True)

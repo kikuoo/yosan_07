@@ -64,4 +64,4 @@ def create_app(config_class=Config):
 app = create_app()
 
 # User モデルをグローバルにエクスポート
-from app.models import User 
+from app.models import User
