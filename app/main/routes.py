@@ -17,9 +17,9 @@ def index():
         
         if current_user.is_authenticated:
             current_app.logger.info('認証済みユーザー、予算ページへリダイレクト')
-            return redirect(url_for('main.budgets'))
+            return redirect('/budgets')
         current_app.logger.info('未認証ユーザー、ログインページへリダイレクト')
-        return redirect(url_for('auth.login'))
+        return redirect('/auth/login')
     except Exception as e:
         current_app.logger.error(f'ルートパス処理エラー: {str(e)}')
         current_app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
