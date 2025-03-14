@@ -74,7 +74,7 @@ def create_app(config_class=Config):
     for rule in app.url_map.iter_rules():
         app.logger.info(f'{rule.endpoint}: {rule.methods} {rule}')
     
-    # エラーハンドラの登録
+    # エラーハンドラの登録（ブループリント登録後に移動）
     @app.errorhandler(404)
     def not_found_error(error):
         app.logger.error(f'404エラー: {request.url}')
