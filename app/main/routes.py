@@ -6,7 +6,7 @@ from datetime import datetime
 
 bp = Blueprint('main', __name__)
 
-@bp.route('/')
+@bp.route('/', methods=['GET', 'HEAD'])
 def index():
     try:
         current_app.logger.info('ルートパスへのアクセス')
