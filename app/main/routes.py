@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort, current_app
 from flask_login import login_required, current_user
 from app import db
 from app.models import Property, ConstructionBudget, CONSTRUCTION_TYPES, Payment
@@ -8,13 +8,18 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/')
 def index():
+    current_app.logger.info('ルートパスへのアクセス')
+    current_app.logger.info(f'認証状態: {current_user.is_authenticated}')
     if current_user.is_authenticated:
+        current_app.logger.info('認証済みユーザー、予算ページへリダイレクト')
         return redirect(url_for('main.budgets'))
+    current_app.logger.info('未認証ユーザー、ログインページへリダイレクト')
     return redirect(url_for('auth.login'))
 
 @bp.route('/budgets')
 @login_required
 def budgets():
+    current_app.logger.info('予算ページへのアクセス')
     properties = Property.query.filter_by(user_id=current_user.id).all()
     return render_template('budgets.html', properties=properties)
 

@@ -46,10 +46,12 @@ def create_app(config_class=Config):
     
     # ブループリントの登録
     from app.main import bp as main_bp
-    app.register_blueprint(main_bp)
+    app.register_blueprint(main_bp, url_prefix='/')
+    app.logger.info('メインブループリントを登録しました')
     
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.logger.info('認証ブループリントを登録しました')
     
     # テンプレートフィルターの登録
     @app.template_filter('format_currency')
@@ -57,6 +59,11 @@ def create_app(config_class=Config):
         if value is None:
             return '0'
         return f'{value:,}'
+    
+    # ルートの登録を確認
+    app.logger.info('登録されたルート:')
+    for rule in app.url_map.iter_rules():
+        app.logger.info(f'{rule.endpoint}: {rule.methods} {rule}')
     
     return app
 

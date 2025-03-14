@@ -3,24 +3,30 @@ from app.models import User, Property, ConstructionBudget
 import os
 from dotenv import load_dotenv
 from sqlalchemy import text
+import logging
         
 load_dotenv()
 
+# ロギングの設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # アプリケーションの作成
 app = create_app()
+logger.info('アプリケーションを作成しました')
 
 def init_database():
     with app.app_context():
         try:
             # テーブルを作成
             db.create_all()
-            print('テーブルを作成しました')
+            logger.info('テーブルを作成しました')
 
             # テーブルが正しく作成されたか確認
             db.session.execute(text('SELECT 1 FROM property LIMIT 1'))
-            print('propertyテーブルが存在することを確認しました')
+            logger.info('propertyテーブルが存在することを確認しました')
         except Exception as e:
-            print(f'テーブル作成エラー: {str(e)}')
+            logger.error(f'テーブル作成エラー: {str(e)}')
             try:
                 # テーブルを個別に作成
                 db.session.execute(text('''
@@ -59,9 +65,9 @@ def init_database():
                 '''))
                 
                 db.session.commit()
-                print('テーブルを個別に作成しました')
+                logger.info('テーブルを個別に作成しました')
             except Exception as e:
-                print(f'個別テーブル作成エラー: {str(e)}')
+                logger.error(f'個別テーブル作成エラー: {str(e)}')
                 db.session.rollback()
         
         try:
@@ -76,11 +82,11 @@ def init_database():
                 admin.set_password('admin')
                 db.session.add(admin)
                 db.session.commit()
-                print('管理者ユーザーを作成しました')
+                logger.info('管理者ユーザーを作成しました')
             else:
-                print('管理者ユーザーは既に存在します')
+                logger.info('管理者ユーザーは既に存在します')
         except Exception as e:
-            print(f'管理者ユーザー作成エラー: {str(e)}')
+            logger.error(f'管理者ユーザー作成エラー: {str(e)}')
             db.session.rollback()
 
 # アプリケーション起動時にデータベースを初期化
@@ -88,8 +94,10 @@ init_database()
 
 # Gunicorn用のアプリケーションエクスポート
 application = app
+logger.info('アプリケーションをエクスポートしました')
 
 if __name__ == '__main__':
     # ローカル開発環境用
     port = int(os.environ.get('PORT', 5000))
+    logger.info(f'アプリケーションを起動します。ポート: {port}')
     app.run(host='0.0.0.0', port=port)
