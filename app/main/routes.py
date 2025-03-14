@@ -8,22 +8,8 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/', methods=['GET', 'HEAD'])
 def index():
-    try:
-        current_app.logger.info('ルートパスへのアクセス')
-        current_app.logger.info(f'認証状態: {current_user.is_authenticated}')
-        current_app.logger.info(f'リクエストURL: {request.url}')
-        current_app.logger.info(f'リクエストメソッド: {request.method}')
-        current_app.logger.info(f'リクエストヘッダー: {dict(request.headers)}')
-        
-        if current_user.is_authenticated:
-            current_app.logger.info('認証済みユーザー、予算ページへリダイレクト')
-            return redirect(url_for('main.budgets'))
-        current_app.logger.info('未認証ユーザー、ログインページへリダイレクト')
-        return redirect(url_for('auth.login'))
-    except Exception as e:
-        current_app.logger.error(f'ルートパス処理エラー: {str(e)}')
-        current_app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
-        return render_template('error.html', error=str(e)), 500
+    current_app.logger.info('ルートパスへのアクセス')
+    return redirect(url_for('auth.login'))
 
 @bp.route('/budgets')
 @login_required

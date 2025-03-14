@@ -53,15 +53,15 @@ def create_app(config_class=Config):
     def load_user(user_id):
         return User.query.get(int(user_id))
     
+    # メインブループリントの登録（先に登録）
+    from app.main import bp as main_bp
+    app.register_blueprint(main_bp)
+    app.logger.info('メインブループリントを登録しました')
+    
     # 認証ブループリントの登録
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.logger.info('認証ブループリントを登録しました')
-    
-    # メインブループリントの登録（最後に登録）
-    from app.main import bp as main_bp
-    app.register_blueprint(main_bp)
-    app.logger.info('メインブループリントを登録しました')
     
     # テンプレートフィルターの登録
     @app.template_filter('format_currency')
