@@ -30,14 +30,14 @@ def create_app(config_class=Config):
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev')
     
-    # セキュアなセッション設定
-    app.config['SESSION_COOKIE_SECURE'] = True
+    # セキュアなセッション設定を一時的に無効化
+    app.config['SESSION_COOKIE_SECURE'] = False
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
-    # プロキシヘッダーの設定
+    # プロキシヘッダーの設定を調整
     from werkzeug.middleware.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_port=1)
     
     # データベースとログインマネージャーの初期化
     db.init_app(app)
@@ -79,6 +79,8 @@ def create_app(config_class=Config):
     @app.errorhandler(404)
     def not_found_error(error):
         app.logger.error(f'404エラー: {request.url}')
+        if request.method == 'HEAD':
+            return '', 200
         return render_template('error.html', error='ページが見つかりません'), 404
     
     @app.errorhandler(500)

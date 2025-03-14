@@ -9,7 +9,8 @@ bp = Blueprint('main', __name__)
 @bp.route('/', methods=['GET', 'HEAD'])
 def index():
     current_app.logger.info('ルートパスへのアクセス')
-    return redirect(url_for('auth.login'))
+    current_app.logger.info(f'リクエストメソッド: {request.method}')
+    return '', 200
 
 @bp.route('/budgets')
 @login_required
