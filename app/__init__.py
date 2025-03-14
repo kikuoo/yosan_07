@@ -10,8 +10,9 @@ db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 
-def create_app():
+def create_app(config_class=Config):
     app = Flask(__name__)
+    app.config.from_object(config_class)
     
     # データベースの設定
     database_url = os.environ.get('DATABASE_URL', '').strip()
@@ -39,17 +40,18 @@ def create_app():
         return User.query.get(int(user_id))
     
     # ブループリントの登録
-    from app.routes import main
-    from app.auth import auth
-    app.register_blueprint(main)
-    app.register_blueprint(auth)
+    from app.main import bp as main_bp
+    app.register_blueprint(main_bp)
+    
+    from app.auth import bp as auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
     
     # テンプレートフィルターの登録
     @app.template_filter('format_currency')
     def format_currency(value):
         if value is None:
-            return '¥0'
-        return f'¥{value:,}'
+            return '0'
+        return f'{value:,}'
     
     return app
 
