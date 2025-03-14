@@ -8,7 +8,9 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/')
 def index():
-    return redirect(url_for('main.budgets'))
+    if current_user.is_authenticated:
+        return redirect(url_for('main.budgets'))
+    return redirect(url_for('auth.login'))
 
 @bp.route('/budgets')
 @login_required
