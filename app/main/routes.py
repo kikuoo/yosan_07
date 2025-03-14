@@ -4,7 +4,7 @@ from app import db
 from app.models import Property, ConstructionBudget, CONSTRUCTION_TYPES, Payment
 from datetime import datetime
 
-bp = Blueprint('main', __name__, url_prefix='/')
+bp = Blueprint('main', __name__)
 
 @bp.route('/', methods=['GET', 'HEAD'])
 def index():

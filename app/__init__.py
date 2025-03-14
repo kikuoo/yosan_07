@@ -53,14 +53,15 @@ def create_app(config_class=Config):
     def load_user(user_id):
         return User.query.get(int(user_id))
     
-    # ブループリントの登録
-    from app.main import bp as main_bp
-    app.register_blueprint(main_bp)
-    app.logger.info('メインブループリントを登録しました')
-    
+    # 認証ブループリントの登録
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.logger.info('認証ブループリントを登録しました')
+    
+    # メインブループリントの登録（最後に登録）
+    from app.main import bp as main_bp
+    app.register_blueprint(main_bp)
+    app.logger.info('メインブループリントを登録しました')
     
     # テンプレートフィルターの登録
     @app.template_filter('format_currency')
@@ -74,7 +75,7 @@ def create_app(config_class=Config):
     for rule in app.url_map.iter_rules():
         app.logger.info(f'{rule.endpoint}: {rule.methods} {rule}')
     
-    # エラーハンドラの登録（ブループリント登録後に移動）
+    # エラーハンドラの登録
     @app.errorhandler(404)
     def not_found_error(error):
         app.logger.error(f'404エラー: {request.url}')
