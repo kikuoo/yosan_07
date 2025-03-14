@@ -10,6 +10,11 @@ db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///yosan.db'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
