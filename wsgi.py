@@ -6,6 +6,7 @@ from sqlalchemy import text
         
 load_dotenv()
 
+# アプリケーションの作成
 app = create_app()
 
 def init_database():
@@ -85,7 +86,7 @@ def init_database():
 # アプリケーション起動時にデータベースを初期化
 init_database()
 
-# アプリケーションをエクスポート
+# Gunicorn用のアプリケーションエクスポート
 application = app
 
 if __name__ == '__main__':
