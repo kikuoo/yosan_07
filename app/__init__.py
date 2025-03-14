@@ -46,7 +46,7 @@ def create_app(config_class=Config):
     
     # ブループリントの登録
     from app.main import bp as main_bp
-    app.register_blueprint(main_bp)
+    app.register_blueprint(main_bp, url_prefix='/')
     app.logger.info('メインブループリントを登録しました')
     
     from app.auth import bp as auth_bp
@@ -64,6 +64,17 @@ def create_app(config_class=Config):
     app.logger.info('登録されたルート:')
     for rule in app.url_map.iter_rules():
         app.logger.info(f'{rule.endpoint}: {rule.methods} {rule}')
+    
+    # エラーハンドラの登録
+    @app.errorhandler(404)
+    def not_found_error(error):
+        app.logger.error(f'404エラー: {request.url}')
+        return render_template('error.html', error='ページが見つかりません'), 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        app.logger.error(f'500エラー: {str(error)}')
+        return render_template('error.html', error='サーバーエラーが発生しました'), 500
     
     return app
 

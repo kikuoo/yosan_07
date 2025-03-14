@@ -11,6 +11,10 @@ def index():
     try:
         current_app.logger.info('ルートパスへのアクセス')
         current_app.logger.info(f'認証状態: {current_user.is_authenticated}')
+        current_app.logger.info(f'リクエストURL: {request.url}')
+        current_app.logger.info(f'リクエストメソッド: {request.method}')
+        current_app.logger.info(f'リクエストヘッダー: {dict(request.headers)}')
+        
         if current_user.is_authenticated:
             current_app.logger.info('認証済みユーザー、予算ページへリダイレクト')
             return redirect(url_for('main.budgets'))
@@ -18,6 +22,7 @@ def index():
         return redirect(url_for('auth.login'))
     except Exception as e:
         current_app.logger.error(f'ルートパス処理エラー: {str(e)}')
+        current_app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
         return render_template('error.html', error=str(e)), 500
 
 @bp.route('/budgets')
@@ -25,10 +30,12 @@ def index():
 def budgets():
     try:
         current_app.logger.info('予算ページへのアクセス')
+        current_app.logger.info(f'ユーザーID: {current_user.id}')
         properties = Property.query.filter_by(user_id=current_user.id).all()
         return render_template('budgets.html', properties=properties)
     except Exception as e:
         current_app.logger.error(f'予算ページ処理エラー: {str(e)}')
+        current_app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
         return render_template('error.html', error=str(e)), 500
 
 @bp.route('/property/add', methods=['POST'])
