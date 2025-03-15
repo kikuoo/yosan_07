@@ -181,7 +181,16 @@ def create_app():
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         if request.method == 'GET':
-            return '''
+            error = request.args.get('error')
+            error_message = ''
+            if error == 'invalid_credentials':
+                error_message = '<div class="alert alert-danger">ユーザー名またはパスワードが正しくありません</div>'
+            elif error == 'missing_fields':
+                error_message = '<div class="alert alert-danger">ユーザー名とパスワードを入力してください</div>'
+            elif error == 'system_error':
+                error_message = '<div class="alert alert-danger">ログイン処理中にエラーが発生しました。しばらく待ってから再度お試しください。</div>'
+            
+            return f'''
             <!DOCTYPE html>
             <html lang="ja">
             <head>
@@ -198,6 +207,7 @@ def create_app():
                                     <h4 class="mb-0">ログイン</h4>
                                 </div>
                                 <div class="card-body">
+                                    {error_message}
                                     <form method="POST">
                                         <div class="mb-3">
                                             <label for="username" class="form-label">ユーザー名</label>
@@ -221,18 +231,27 @@ def create_app():
             </html>
             '''
         
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        if not username or not password:
-            return redirect('/login')
-        
-        user = User.query.filter_by(username=username).first()
-        if user is None or not user.check_password(password):
-            return redirect('/login')
-        
-        login_user(user)
-        return redirect('/budgets')
+        try:
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
+            if not username or not password:
+                app.logger.warning('ログイン失敗: ユーザー名またはパスワードが入力されていません')
+                return redirect('/login?error=missing_fields')
+            
+            user = User.query.filter_by(username=username).first()
+            if user is None or not user.check_password(password):
+                app.logger.warning(f'ログイン失敗: ユーザー名またはパスワードが正しくありません')
+                return redirect('/login?error=invalid_credentials')
+            
+            login_user(user)
+            app.logger.info(f'ログイン成功: ユーザー "{username}"')
+            return redirect('/budgets')
+            
+        except Exception as e:
+            app.logger.error(f'ログイン処理エラー: {str(e)}')
+            app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
+            return redirect('/login?error=system_error')
 
     @app.route('/logout')
     @login_required
