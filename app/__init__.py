@@ -656,7 +656,7 @@ def create_app():
                 total_amount += budget.amount
                 
                 # 支払い情報の取得と集計
-                payments = Payment.query.filter_by(budget_id=budget.id).all()
+                payments = Payment.query.filter_by(construction_budget_id=budget.id).all()
                 contract_payments = [p for p in payments if p.is_contract]
                 non_contract_payments = [p for p in payments if not p.is_contract]
                 contract_total = sum(p.amount for p in contract_payments)
@@ -1093,7 +1093,7 @@ def create_app():
                 amount=int(payment_amount),
                 is_contract=is_contract,
                 note=payment_note,
-                budget_id=budget_id
+                construction_budget_id=budget_id
             )
             
             db.session.add(payment)
