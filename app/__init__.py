@@ -162,6 +162,14 @@ def create_app():
             if 'payment' in existing_tables:
                 columns = {column['name'] for column in inspector.get_columns('payment')}
                 
+                # budget_id カラムの確認と追加
+                if 'budget_id' not in columns:
+                    app.logger.info('payment テーブルに budget_id カラムを追加します')
+                    with db.engine.connect() as conn:
+                        conn.execute(db.text('ALTER TABLE payment ADD COLUMN budget_id INTEGER REFERENCES construction_budget(id)'))
+                        conn.commit()
+                    app.logger.info('budget_id カラムを追加しました')
+                
                 # is_contract カラムの確認と追加
                 if 'is_contract' not in columns:
                     app.logger.info('payment テーブルに is_contract カラムを追加します')
