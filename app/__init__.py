@@ -693,7 +693,48 @@ def create_app():
                                         <td>{payment.year}年{payment.month}月</td>
                                         <td>{payment.vendor_name}</td>
                                         <td>{payment.amount:,}円</td>
-                                        <td>{payment.note or ''}</td>
+                                        <td>
+                                            {payment.note or ''}
+                                            <button type="button" class="btn btn-sm btn-success ms-2" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}_{payment.id}">
+                                                出来高支払い
+                                            </button>
+                                            <!-- 出来高支払い入力モーダル -->
+                                            <div class="modal fade" id="progressPaymentModal{budget.id}_{payment.id}" tabindex="-1">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">出来高支払い入力</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <form action="/budget/{budget.id}/payment/add" method="POST">
+                                                                <div class="row mb-3">
+                                                                    <div class="col">
+                                                                        <label for="payment_year" class="form-label">年</label>
+                                                                        <input type="number" class="form-control" id="payment_year" name="payment_year" required min="2000" max="2100">
+                                                                    </div>
+                                                                    <div class="col">
+                                                                        <label for="payment_month" class="form-label">月</label>
+                                                                        <input type="number" class="form-control" id="payment_month" name="payment_month" required min="1" max="12">
+                                                                    </div>
+                                                                </div>
+                                                                <div class="mb-3">
+                                                                    <label for="payment_amount" class="form-label">支払い金額</label>
+                                                                    <input type="number" class="form-control" id="payment_amount" name="payment_amount" required max="{budget.amount - contract_total}">
+                                                                    <div class="form-text">請負残額: {budget.amount - contract_total:,}円</div>
+                                                                </div>
+                                                                <input type="hidden" name="vendor_name" value="{payment.vendor_name}">
+                                                                <input type="hidden" name="is_contract" value="true">
+                                                                <input type="hidden" name="payment_note" value="出来高支払">
+                                                                <div class="text-end">
+                                                                    <button type="submit" class="btn btn-primary">登録</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
                                     </tr>
                                     """ for payment in sorted(contract_payments, key=lambda x: (x.year, x.month))])}
                                     <tr class="table-info">
