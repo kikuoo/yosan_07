@@ -669,6 +669,10 @@ def create_app():
                 # 請負残額（予算額から請負支払い合計を引いた額）
                 contract_remaining = budget.amount - contract_total
 
+                # HTML変数の初期化
+                contract_payments_html = ''
+                non_contract_payments_html = ''
+
                 # 請負支払いの処理
                 if contract_payments:
                     # 業者ごとにグループ化
@@ -785,6 +789,7 @@ def create_app():
                                     <span class="ms-3 text-muted">請負額: {vendor_total:,}円</span>
                                 </div>
                                 <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}_{vendor_name.replace(" ", "_")}">出来高払い</button>
                                     <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editVendorModal{budget.id}_{vendor_name.replace(" ", "_")}">編集</button>
                                     <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteVendorModal{budget.id}_{vendor_name.replace(" ", "_")}">削除</button>
                                 </div>
@@ -801,6 +806,48 @@ def create_app():
                                         </tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                        <div class="modal fade" id="progressPaymentModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">{vendor_name} - 出来高払い入力</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form action="/budget/{budget.id}/payment/add" method="POST">
+                                            <div class="row mb-3">
+                                                <div class="col">
+                                                    <label for="payment_year" class="form-label">年</label>
+                                                    <select class="form-select" id="payment_year" name="payment_year" required>
+                                                        {''.join(year_options)}
+                                                    </select>
+                                                </div>
+                                                <div class="col">
+                                                    <label for="payment_month" class="form-label">月</label>
+                                                    <select class="form-select" id="payment_month" name="payment_month" required>
+                                                        {''.join(month_options)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="payment_amount" class="form-label">支払い金額</label>
+                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
+                                                <div class="form-text">
+                                                    <div>業者支払合計: {vendor_total:,}円</div>
+                                                    <div>工種請負残額: {contract_remaining:,}円</div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="vendor_name" value="{vendor_name}">
+                                            <input type="hidden" name="is_contract" value="true">
+                                            <input type="hidden" name="payment_note" value="出来高支払">
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">登録</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="modal fade" id="editVendorModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
