@@ -70,21 +70,57 @@ def create_app():
         app.logger.info(f'404エラー: {request.url}')
         if request.method == 'HEAD':
             return '', 200
-        try:
-            return redirect(url_for('auth.login'))
-        except Exception as e:
-            app.logger.error(f'リダイレクト中にエラーが発生しました: {str(e)}')
-            return 'エラーが発生しました', 500
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>ページが見つかりません</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6 text-center">
+                        <h1>ページが見つかりません</h1>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">トップページに戻る</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        ''', 404
     
     @app.errorhandler(500)
     def internal_error(error):
         app.logger.error(f'500エラー: {str(error)}')
         db.session.rollback()
-        try:
-            return redirect(url_for('auth.login'))
-        except Exception as e:
-            app.logger.error(f'リダイレクト中にエラーが発生しました: {str(e)}')
-            return 'エラーが発生しました', 500
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>エラーが発生しました</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6 text-center">
+                        <h1>エラーが発生しました</h1>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">トップページに戻る</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        ''', 500
     
     return app
 
