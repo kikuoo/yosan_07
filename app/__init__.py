@@ -252,6 +252,46 @@ def create_app():
             app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
             return redirect('/')
 
+    @app.route('/property/add', methods=['POST'])
+    @login_required
+    def add_property():
+        try:
+            code = request.form.get('code')
+            name = request.form.get('name')
+            contract_amount = request.form.get('contract_amount')
+            budget_amount = request.form.get('budget_amount')
+            
+            # 入力値の検証
+            if not all([code, name, contract_amount, budget_amount]):
+                app.logger.error('必須項目が入力されていません')
+                return redirect('/budgets')
+            
+            # 物件コードの重複チェック
+            from app.models import Property
+            if Property.query.filter_by(code=code).first() is not None:
+                app.logger.error('この物件コードは既に使用されています')
+                return redirect('/budgets')
+            
+            # 新規物件の作成
+            property = Property(
+                code=code,
+                name=name,
+                contract_amount=int(contract_amount),
+                budget_amount=int(budget_amount),
+                user_id=current_user.id
+            )
+            
+            db.session.add(property)
+            db.session.commit()
+            app.logger.info(f'新規物件を登録しました: {code}')
+            
+            return redirect('/budgets')
+            
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'物件登録エラー: {str(e)}')
+            return redirect('/budgets')
+
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         if request.method == 'GET':
