@@ -684,6 +684,13 @@ def create_app():
                     
                     # 業者ごとのHTML生成
                     vendor_cards = []
+                    
+                    # 年月の選択肢を生成
+                    current_year = datetime.now().year
+                    current_month = datetime.now().month
+                    year_options = [f'<option value="{year}" {"selected" if year == current_year else ""}>{year}年</option>' for year in range(2020, current_year + 2)]
+                    month_options = [f'<option value="{month}" {"selected" if month == current_month else ""}>{month}月</option>' for month in range(1, 13)]
+                    
                     for vendor_name, vendor_payments in vendor_groups.items():
                         # 業者ごとの支払い合計
                         vendor_total = sum(p.amount for p in vendor_payments)
@@ -943,7 +950,7 @@ def create_app():
                                                 <label for="code" class="form-label">工種コード</label>
                                                 <select class="form-select" id="code" name="code" onchange="updateConstructionName(this)" required>
                                                     <option value="">工種を選択してください</option>
-''' + '\n'.join([f'                                                    <option value="{code}" data-name="{name}" {"selected" if code == budget.code else ""}>{code} - {name}</option>' for code, name in CONSTRUCTION_TYPES.items()]) + f'''
+''' + '\n'.join([f'                                                    <option value="{code}" data-name="{name}" {"selected" if code == budget.code else ""}>{code} - {name}</option>' for code, name in CONSTRUCTION_TYPES.items()]) + '''
                                                 </select>
                                             </div>
                                             <div class="mb-3">
