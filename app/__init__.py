@@ -143,12 +143,27 @@ def create_app():
             existing_tables = inspector.get_table_names()
             app.logger.info(f'既存のテーブル: {existing_tables}')
             
-            if not existing_tables:
-                # データベースのテーブルを作成
+            # テーブルが存在しない場合は作成
+            required_tables = {'user', 'property', 'construction_budget', 'payment'}
+            missing_tables = required_tables - set(existing_tables)
+            
+            if missing_tables:
+                app.logger.info(f'作成が必要なテーブル: {missing_tables}')
                 db.create_all()
                 app.logger.info('データベーステーブルを作成しました')
-                
-                # 管理者ユーザーの作成
+            
+            # payment テーブルの is_contract カラムの確認と追加
+            if 'payment' in existing_tables:
+                columns = {column['name'] for column in inspector.get_columns('payment')}
+                if 'is_contract' not in columns:
+                    app.logger.info('payment テーブルに is_contract カラムを追加します')
+                    with db.engine.connect() as conn:
+                        conn.execute(db.text('ALTER TABLE payment ADD COLUMN is_contract BOOLEAN NOT NULL DEFAULT TRUE'))
+                        conn.commit()
+                    app.logger.info('is_contract カラムを追加しました')
+            
+            # 管理者ユーザーの作成（テーブル作成直後のみ）
+            if 'user' in missing_tables:
                 admin = User.query.filter_by(username='admin').first()
                 if not admin:
                     admin = User(
@@ -160,8 +175,6 @@ def create_app():
                     db.session.add(admin)
                     db.session.commit()
                     app.logger.info('管理者ユーザーを作成しました')
-            else:
-                app.logger.info('既存のテーブルが見つかりました。テーブルの作成をスキップします')
             
     except Exception as e:
         app.logger.error(f'データベース初期化エラー: {str(e)}')
