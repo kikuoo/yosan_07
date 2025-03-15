@@ -107,9 +107,10 @@ def create_app():
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
         app.logger.error('DATABASE_URL環境変数が設定されていません')
-        database_url = 'postgresql://postgres:postgres@localhost:5432/yosan'
-    elif database_url.startswith('postgres://'):
-        # RenderのPostgreSQLアドオン用の設定
+        raise ValueError('DATABASE_URL環境変数が必要です')
+    
+    # RenderのPostgreSQLアドオン用の設定
+    if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
         app.logger.info('PostgreSQL接続URLを修正しました')
     
@@ -118,7 +119,10 @@ def create_app():
     # SSL設定の追加（Render環境用）
     if os.environ.get('PRODUCTION', 'false').lower() == 'true':
         app.logger.info('本番環境用のSSL設定を適用します')
-        database_url += '?sslmode=require'
+        if '?' not in database_url:
+            database_url += '?sslmode=require'
+        else:
+            database_url += '&sslmode=require'
     
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -139,23 +143,26 @@ def create_app():
             existing_tables = inspector.get_table_names()
             app.logger.info(f'既存のテーブル: {existing_tables}')
             
-            # データベースのテーブルを作成
-            db.create_all()
-            app.logger.info('データベーステーブルを作成しました')
-            
-            # 管理者ユーザーの作成
-            from app.models import User
-            admin = User.query.filter_by(username='admin').first()
-            if not admin:
-                admin = User(
-                    username='admin',
-                    email='admin@example.com',
-                    is_admin=True
-                )
-                admin.set_password('admin')
-                db.session.add(admin)
-                db.session.commit()
-                app.logger.info('管理者ユーザーを作成しました')
+            if not existing_tables:
+                # データベースのテーブルを作成
+                db.create_all()
+                app.logger.info('データベーステーブルを作成しました')
+                
+                # 管理者ユーザーの作成
+                from app.models import User
+                admin = User.query.filter_by(username='admin').first()
+                if not admin:
+                    admin = User(
+                        username='admin',
+                        email='admin@example.com',
+                        is_admin=True
+                    )
+                    admin.set_password('admin')
+                    db.session.add(admin)
+                    db.session.commit()
+                    app.logger.info('管理者ユーザーを作成しました')
+            else:
+                app.logger.info('既存のテーブルが見つかりました。テーブルの作成をスキップします')
             
     except Exception as e:
         app.logger.error(f'データベース初期化エラー: {str(e)}')
@@ -163,7 +170,8 @@ def create_app():
         app.logger.error(f'データベース接続URL: {database_url}')
         if hasattr(e, 'orig'):
             app.logger.error(f'原因: {str(e.orig)}')
-            
+        raise  # エラーを再度発生させて、問題を明確にする
+    
     # ログインマネージャーの初期化
     login_manager.init_app(app)
     login_manager.login_view = 'login'
