@@ -817,6 +817,11 @@ def create_app():
                                                 <label for="vendor_name" class="form-label">業者名</label>
                                                 <input type="text" class="form-control" id="vendor_name" name="vendor_name" value="{vendor_name}" required>
                                             </div>
+                                            <div class="mb-3">
+                                                <label for="contract_amount" class="form-label">請負額</label>
+                                                <input type="number" class="form-control" id="contract_amount" name="contract_amount" value="{vendor_total}" required>
+                                                <div class="form-text">現在の支払い合計: {vendor_total:,}円</div>
+                                            </div>
                                             <div class="text-end">
                                                 <button type="submit" class="btn btn-primary">更新</button>
                                             </div>
@@ -1513,8 +1518,9 @@ def create_app():
             
             old_vendor_name = request.form.get('old_vendor_name')
             new_vendor_name = request.form.get('vendor_name')
+            contract_amount = request.form.get('contract_amount')
             
-            if not all([old_vendor_name, new_vendor_name]):
+            if not all([old_vendor_name, new_vendor_name, contract_amount]):
                 return redirect(f'/property/{budget.property_id}')
             
             # 業者名を更新
@@ -1523,16 +1529,22 @@ def create_app():
                 vendor_name=old_vendor_name
             ).all()
             
+            # 業者名の更新
             for payment in payments:
                 payment.vendor_name = new_vendor_name
             
+            # 請負額の更新（最新の支払いを更新）
+            if payments:
+                latest_payment = max(payments, key=lambda x: (x.year, x.month))
+                latest_payment.amount = int(contract_amount)
+            
             db.session.commit()
-            app.logger.info(f'業者名を更新しました: {old_vendor_name} → {new_vendor_name}')
+            app.logger.info(f'業者情報を更新しました: {old_vendor_name} → {new_vendor_name}, 請負額: {contract_amount}円')
             
             return redirect(f'/property/{budget.property_id}#budget_{budget_id}')
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f'業者名更新エラー: {str(e)}')
+            app.logger.error(f'業者情報更新エラー: {str(e)}')
             return redirect(f'/property/{budget.property_id}')
 
     @app.route('/budget/<int:budget_id>/vendor/delete', methods=['POST'])
