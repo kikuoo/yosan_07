@@ -42,7 +42,7 @@ class ConstructionBudget(db.Model):
     
     # リレーションシップ
     property = db.relationship('Property', backref=db.backref('budgets', lazy=True))
-    payments = db.relationship('Payment', backref='budget', lazy=True, cascade='all, delete-orphan')
+    payments = db.relationship('Payment', backref='construction_budget', lazy=True, cascade='all, delete-orphan')
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -56,9 +56,6 @@ class Payment(db.Model):
     construction_budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # リレーションシップ
-    budget = db.relationship('ConstructionBudget', backref=db.backref('payments', lazy=True))
 
     def __init__(self, **kwargs):
         if 'budget_id' in kwargs:
