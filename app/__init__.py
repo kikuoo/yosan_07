@@ -18,7 +18,8 @@ def create_app():
     
     # 基本設定
     app.config['SECRET_KEY'] = 'dev'
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///yosan.db'
+    # データベースファイルのパスを絶対パスで指定
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'yosan.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # セッション設定を一時的に無効化
@@ -155,7 +156,72 @@ def create_app():
                     <td>{property.contract_amount:,}円</td>
                     <td>{property.budget_amount:,}円</td>
                     <td>
-                        <a href="/property/{property.id}" class="btn btn-sm btn-info">詳細</a>
+                        <div class="btn-group" role="group">
+                            <a href="/property/{property.id}" class="btn btn-sm btn-info">工種一覧</a>
+                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editPropertyModal{property.id}">
+                                編集
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePropertyModal{property.id}">
+                                削除
+                            </button>
+                        </div>
+
+                        <!-- 編集モーダル -->
+                        <div class="modal fade" id="editPropertyModal{property.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">物件編集</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form action="/property/{property.id}/edit" method="POST">
+                                            <div class="mb-3">
+                                                <label for="code" class="form-label">物件コード</label>
+                                                <input type="text" class="form-control" id="code" name="code" value="{property.code}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="name" class="form-label">物件名</label>
+                                                <input type="text" class="form-control" id="name" name="name" value="{property.name}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="contract_amount" class="form-label">契約金額</label>
+                                                <input type="number" class="form-control" id="contract_amount" name="contract_amount" value="{property.contract_amount}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="budget_amount" class="form-label">予算金額</label>
+                                                <input type="number" class="form-control" id="budget_amount" name="budget_amount" value="{property.budget_amount}" required>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">更新</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 削除確認モーダル -->
+                        <div class="modal fade" id="deletePropertyModal{property.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">物件削除の確認</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>物件「{property.name}」を削除してもよろしいですか？</p>
+                                        <p class="text-danger">この操作は取り消せません。</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <form action="/property/{property.id}/delete" method="POST">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                            <button type="submit" class="btn btn-danger">削除</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </td>
                 </tr>
                 '''
@@ -372,6 +438,337 @@ def create_app():
             db.session.rollback()
             app.logger.error(f'ユーザー登録エラー: {str(e)}')
             return redirect('/register')
+
+    @app.route('/property/<int:property_id>')
+    @login_required
+    def property_detail(property_id):
+        try:
+            from app.models import Property, ConstructionBudget
+            property = Property.query.get_or_404(property_id)
+            
+            # 権限チェック
+            if property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            # 工種一覧の取得
+            budgets = ConstructionBudget.query.filter_by(property_id=property_id).all()
+            
+            # 工種リストのHTML生成
+            budgets_html = ''
+            total_amount = 0
+            for budget in budgets:
+                total_amount += budget.amount
+                budgets_html += f'''
+                <tr>
+                    <td>{budget.code}</td>
+                    <td>{budget.name}</td>
+                    <td>{budget.amount:,}円</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editBudgetModal{budget.id}">
+                                編集
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal{budget.id}">
+                                削除
+                            </button>
+                        </div>
+
+                        <!-- 工種編集モーダル -->
+                        <div class="modal fade" id="editBudgetModal{budget.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">工種編集</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form action="/budget/{budget.id}/edit" method="POST">
+                                            <div class="mb-3">
+                                                <label for="code" class="form-label">工種コード</label>
+                                                <input type="text" class="form-control" id="code" name="code" value="{budget.code}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="name" class="form-label">工種名</label>
+                                                <input type="text" class="form-control" id="name" name="name" value="{budget.name}" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="amount" class="form-label">金額</label>
+                                                <input type="number" class="form-control" id="amount" name="amount" value="{budget.amount}" required>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">更新</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 工種削除確認モーダル -->
+                        <div class="modal fade" id="deleteBudgetModal{budget.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">工種削除の確認</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>工種「{budget.name}」を削除してもよろしいですか？</p>
+                                        <p class="text-danger">この操作は取り消せません。</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <form action="/budget/{budget.id}/delete" method="POST">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                            <button type="submit" class="btn btn-danger">削除</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                '''
+            
+            return f'''
+            <!DOCTYPE html>
+            <html lang="ja">
+            <head>
+                <meta charset="utf-8">
+                <title>{property.name} - 工種一覧 - 予算管理システム</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            </head>
+            <body>
+                <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+                    <div class="container">
+                        <a class="navbar-brand" href="/">予算管理システム</a>
+                        <div class="navbar-nav ms-auto">
+                            <a class="nav-link" href="/budgets">物件一覧</a>
+                            <a class="nav-link" href="/logout">ログアウト</a>
+                        </div>
+                    </div>
+                </nav>
+                
+                <div class="container mt-4">
+                    <div class="row mb-4">
+                        <div class="col">
+                            <h2>{property.name} - 工種一覧</h2>
+                            <p>契約金額: {property.contract_amount:,}円 / 予算金額: {property.budget_amount:,}円</p>
+                            <p>工種合計: {total_amount:,}円</p>
+                        </div>
+                        <div class="col text-end">
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBudgetModal">
+                                新規工種登録
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>工種コード</th>
+                                    <th>工種名</th>
+                                    <th>金額</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {budgets_html}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 新規工種登録モーダル -->
+                <div class="modal fade" id="addBudgetModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">新規工種登録</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form action="/property/{property_id}/budget/add" method="POST">
+                                    <div class="mb-3">
+                                        <label for="code" class="form-label">工種コード</label>
+                                        <input type="text" class="form-control" id="code" name="code" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="name" class="form-label">工種名</label>
+                                        <input type="text" class="form-control" id="name" name="name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="amount" class="form-label">金額</label>
+                                        <input type="number" class="form-control" id="amount" name="amount" required>
+                                    </div>
+                                    <div class="text-end">
+                                        <button type="submit" class="btn btn-primary">登録</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            </body>
+            </html>
+            '''
+        except Exception as e:
+            app.logger.error(f'工種一覧ページ処理エラー: {str(e)}')
+            app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
+            return redirect('/budgets')
+
+    @app.route('/property/<int:property_id>/edit', methods=['POST'])
+    @login_required
+    def edit_property(property_id):
+        try:
+            from app.models import Property
+            property = Property.query.get_or_404(property_id)
+            
+            # 権限チェック
+            if property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            code = request.form.get('code')
+            name = request.form.get('name')
+            contract_amount = request.form.get('contract_amount')
+            budget_amount = request.form.get('budget_amount')
+            
+            if not all([code, name, contract_amount, budget_amount]):
+                return redirect('/budgets')
+            
+            # コードの重複チェック（自分以外）
+            existing = Property.query.filter(Property.code == code, Property.id != property_id).first()
+            if existing is not None:
+                return redirect('/budgets')
+            
+            property.code = code
+            property.name = name
+            property.contract_amount = int(contract_amount)
+            property.budget_amount = int(budget_amount)
+            
+            db.session.commit()
+            app.logger.info(f'物件を更新しました: {code}')
+            
+            return redirect('/budgets')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'物件更新エラー: {str(e)}')
+            return redirect('/budgets')
+
+    @app.route('/property/<int:property_id>/delete', methods=['POST'])
+    @login_required
+    def delete_property(property_id):
+        try:
+            from app.models import Property, ConstructionBudget
+            property = Property.query.get_or_404(property_id)
+            
+            # 権限チェック
+            if property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            # 関連する工種を削除
+            ConstructionBudget.query.filter_by(property_id=property_id).delete()
+            
+            # 物件を削除
+            db.session.delete(property)
+            db.session.commit()
+            app.logger.info(f'物件を削除しました: {property.code}')
+            
+            return redirect('/budgets')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'物件削除エラー: {str(e)}')
+            return redirect('/budgets')
+
+    @app.route('/property/<int:property_id>/budget/add', methods=['POST'])
+    @login_required
+    def add_budget(property_id):
+        try:
+            from app.models import Property, ConstructionBudget
+            property = Property.query.get_or_404(property_id)
+            
+            # 権限チェック
+            if property.user_id != current_user.id:
+                return redirect(f'/property/{property_id}')
+            
+            code = request.form.get('code')
+            name = request.form.get('name')
+            amount = request.form.get('amount')
+            
+            if not all([code, name, amount]):
+                return redirect(f'/property/{property_id}')
+            
+            budget = ConstructionBudget(
+                code=code,
+                name=name,
+                amount=int(amount),
+                property_id=property_id
+            )
+            
+            db.session.add(budget)
+            db.session.commit()
+            app.logger.info(f'工種を登録しました: {code}')
+            
+            return redirect(f'/property/{property_id}')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'工種登録エラー: {str(e)}')
+            return redirect(f'/property/{property_id}')
+
+    @app.route('/budget/<int:budget_id>/edit', methods=['POST'])
+    @login_required
+    def edit_budget(budget_id):
+        try:
+            from app.models import ConstructionBudget
+            budget = ConstructionBudget.query.get_or_404(budget_id)
+            
+            # 権限チェック
+            if budget.property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            code = request.form.get('code')
+            name = request.form.get('name')
+            amount = request.form.get('amount')
+            
+            if not all([code, name, amount]):
+                return redirect(f'/property/{budget.property_id}')
+            
+            budget.code = code
+            budget.name = name
+            budget.amount = int(amount)
+            
+            db.session.commit()
+            app.logger.info(f'工種を更新しました: {code}')
+            
+            return redirect(f'/property/{budget.property_id}')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'工種更新エラー: {str(e)}')
+            return redirect(f'/property/{budget.property_id}')
+
+    @app.route('/budget/<int:budget_id>/delete', methods=['POST'])
+    @login_required
+    def delete_budget(budget_id):
+        try:
+            from app.models import ConstructionBudget
+            budget = ConstructionBudget.query.get_or_404(budget_id)
+            property_id = budget.property_id
+            
+            # 権限チェック
+            if budget.property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            db.session.delete(budget)
+            db.session.commit()
+            app.logger.info(f'工種を削除しました: {budget.code}')
+            
+            return redirect(f'/property/{property_id}')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'工種削除エラー: {str(e)}')
+            return redirect(f'/property/{property_id}')
 
     # エラーハンドラ
     @app.errorhandler(404)
