@@ -673,6 +673,12 @@ def create_app():
                 contract_payments_html = ''
                 non_contract_payments_html = ''
 
+                # 年月の選択肢を生成（条件分岐の前に移動）
+                current_year = datetime.now().year
+                current_month = datetime.now().month
+                year_options = [f'<option value="{year}" {"selected" if year == current_year else ""}>{year}年</option>' for year in range(2020, current_year + 2)]
+                month_options = [f'<option value="{month}" {"selected" if month == current_month else ""}>{month}月</option>' for month in range(1, 13)]
+
                 # 請負支払いの処理
                 if contract_payments:
                     # 業者ごとにグループ化
@@ -684,12 +690,6 @@ def create_app():
                     
                     # 業者ごとのHTML生成
                     vendor_cards = []
-                    
-                    # 年月の選択肢を生成
-                    current_year = datetime.now().year
-                    current_month = datetime.now().month
-                    year_options = [f'<option value="{year}" {"selected" if year == current_year else ""}>{year}年</option>' for year in range(2020, current_year + 2)]
-                    month_options = [f'<option value="{month}" {"selected" if month == current_month else ""}>{month}月</option>' for month in range(1, 13)]
                     
                     for vendor_name, vendor_payments in vendor_groups.items():
                         # 業者ごとの支払い合計と残額を計算
