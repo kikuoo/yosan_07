@@ -152,15 +152,31 @@ def create_app():
                 db.create_all()
                 app.logger.info('データベーステーブルを作成しました')
             
-            # payment テーブルの is_contract カラムの確認と追加
+            # テーブルのカラムを確認
+            for table_name in required_tables:
+                if table_name in existing_tables:
+                    columns = [column['name'] for column in inspector.get_columns(table_name)]
+                    app.logger.info(f'{table_name}テーブルのカラム: {columns}')
+            
+            # payment テーブルのカラム確認と追加
             if 'payment' in existing_tables:
                 columns = {column['name'] for column in inspector.get_columns('payment')}
+                
+                # is_contract カラムの確認と追加
                 if 'is_contract' not in columns:
                     app.logger.info('payment テーブルに is_contract カラムを追加します')
                     with db.engine.connect() as conn:
                         conn.execute(db.text('ALTER TABLE payment ADD COLUMN is_contract BOOLEAN NOT NULL DEFAULT TRUE'))
                         conn.commit()
                     app.logger.info('is_contract カラムを追加しました')
+                
+                # note カラムの確認と追加
+                if 'note' not in columns:
+                    app.logger.info('payment テーブルに note カラムを追加します')
+                    with db.engine.connect() as conn:
+                        conn.execute(db.text('ALTER TABLE payment ADD COLUMN note TEXT'))
+                        conn.commit()
+                    app.logger.info('note カラムを追加しました')
             
             # 管理者ユーザーの作成（テーブル作成直後のみ）
             if 'user' in missing_tables:
@@ -175,6 +191,10 @@ def create_app():
                     db.session.add(admin)
                     db.session.commit()
                     app.logger.info('管理者ユーザーを作成しました')
+            
+            # データベース接続テスト
+            db.session.execute(db.text('SELECT 1'))
+            app.logger.info('データベース接続テスト成功')
             
     except Exception as e:
         app.logger.error(f'データベース初期化エラー: {str(e)}')
@@ -595,14 +615,23 @@ def create_app():
     @login_required
     def property_detail(property_id):
         try:
+            app.logger.info(f'工種一覧ページにアクセスしました。物件ID: {property_id}')
+            
             property = Property.query.get_or_404(property_id)
+            app.logger.info(f'物件情報を取得: {property.name}')
             
             # 権限チェック
             if property.user_id != current_user.id:
+                app.logger.warning(f'権限エラー: ユーザーID {current_user.id} は物件ID {property_id} にアクセスできません')
                 return redirect('/budgets')
             
             # 工種一覧の取得
-            budgets = ConstructionBudget.query.filter_by(property_id=property_id).all()
+            try:
+                budgets = ConstructionBudget.query.filter_by(property_id=property_id).all()
+                app.logger.info(f'工種一覧を取得: {len(budgets)}件')
+            except Exception as e:
+                app.logger.error(f'工種一覧の取得に失敗: {str(e)}')
+                raise
             
             # 工種リストのHTML生成
             budgets_html = ''
