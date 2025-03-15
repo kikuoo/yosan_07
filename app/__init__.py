@@ -7,6 +7,7 @@ import logging
 from dotenv import load_dotenv
 from datetime import datetime
 from sqlalchemy import inspect
+from app.models import User  # Userモデルをインポート
 
 # 環境変数の読み込み
 load_dotenv()
@@ -149,7 +150,6 @@ def create_app():
                 app.logger.info('データベーステーブルを作成しました')
                 
                 # 管理者ユーザーの作成
-                from app.models import User
                 admin = User.query.filter_by(username='admin').first()
                 if not admin:
                     admin = User(
