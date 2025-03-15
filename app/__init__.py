@@ -669,10 +669,6 @@ def create_app():
                 # 請負残額（予算額から請負支払い合計を引いた額）
                 contract_remaining = budget.amount - contract_total
 
-                # 請負支払いのHTML生成
-                contract_payments_html = ''
-                non_contract_payments_html = ''
-
                 # 請負支払いの処理
                 if contract_payments:
                     # 業者ごとにグループ化
@@ -680,7 +676,9 @@ def create_app():
                     for payment in contract_payments:
                         if payment.vendor_name not in vendor_groups:
                             vendor_groups[payment.vendor_name] = []
-                        vendor_groups[payment.vendor_name].append(payment)
+                        # 出来高支払いのみを表示
+                        if payment.note == '出来高支払':
+                            vendor_groups[payment.vendor_name].append(payment)
                     
                     # 業者ごとのHTML生成
                     vendor_cards = []
@@ -693,12 +691,13 @@ def create_app():
                     
                     for vendor_name, vendor_payments in vendor_groups.items():
                         # 業者ごとの支払い合計と残額を計算
-                        vendor_total = sum(p.amount for p in vendor_payments)
-                        vendor_remaining = budget.amount - vendor_total
+                        vendor_total = sum(p.amount for p in contract_payments if p.vendor_name == vendor_name)
+                        vendor_progress_total = sum(p.amount for p in vendor_payments)  # 出来高支払いの合計
+                        vendor_remaining = vendor_total - vendor_progress_total  # 請負額から出来高支払い合計を引いた額
                         remaining_style = 'color: red;' if vendor_remaining < 0 else ''
                         warning_message = '<div class="text-danger">※請負額を超過しています</div>' if vendor_remaining < 0 else ''
                         
-                        # 支払い履歴の行を生成
+                        # 支払い履歴の行を生成（出来高支払いのみ）
                         payment_rows = []
                         for p in sorted(vendor_payments, key=lambda x: (x.year, x.month)):
                             payment_rows.append(
