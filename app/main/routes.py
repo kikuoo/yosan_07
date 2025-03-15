@@ -6,13 +6,18 @@ from datetime import datetime
 
 bp = Blueprint('main', __name__)
 
-@bp.route('/', methods=['GET', 'HEAD'])
-def index():
+@bp.route('/', defaults={'path': ''})
+@bp.route('/<path:path>')
+def index(path):
     try:
-        current_app.logger.info(f'ルートパスへのアクセス: {request.method}')
+        current_app.logger.info(f'アクセスパス: {path}')
+        current_app.logger.info(f'リクエストメソッド: {request.method}')
+        current_app.logger.info(f'リクエストヘッダー: {dict(request.headers)}')
+        
         if request.method == 'HEAD':
             return '', 200
-        return '''
+            
+        html = '''
         <!DOCTYPE html>
         <html>
         <head>
@@ -26,17 +31,23 @@ def index():
                 <div class="row justify-content-center">
                     <div class="col-md-6 text-center">
                         <h1>予算管理システム</h1>
+                        <p class="mt-3">予算管理システムへようこそ</p>
                         <div class="mt-4">
                             <a href="/auth/login" class="btn btn-primary btn-lg">ログイン</a>
                         </div>
                     </div>
                 </div>
             </div>
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         </body>
         </html>
         '''
+        current_app.logger.info('HTMLを返します')
+        return html
+        
     except Exception as e:
         current_app.logger.error(f'ルートパス処理エラー: {str(e)}')
+        current_app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
         return 'エラーが発生しました', 500
 
 @bp.route('/budgets')
