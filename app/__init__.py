@@ -51,11 +51,12 @@ def create_app():
     # ブループリントの登録
     try:
         from app.main import bp as main_bp
-        app.register_blueprint(main_bp)
-        app.logger.info('メインブループリントを登録しました')
-        
         from app.auth import bp as auth_bp
+        
+        app.register_blueprint(main_bp)
         app.register_blueprint(auth_bp, url_prefix='/auth')
+        
+        app.logger.info('メインブループリントを登録しました')
         app.logger.info('認証ブループリントを登録しました')
     except Exception as e:
         app.logger.error(f'ブループリントの登録中にエラーが発生しました: {str(e)}')
@@ -65,59 +66,54 @@ def create_app():
     def not_found_error(error):
         if request.method == 'HEAD':
             return '', 200
-            
-        with app.app_context():
-            login_url = url_for('auth.login', _external=True)
-            return f'''
-            <!DOCTYPE html>
-            <html lang="ja">
-            <head>
-                <meta charset="utf-8">
-                <title>予算管理システム</title>
-                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-            </head>
-            <body>
-                <div class="container mt-5">
-                    <div class="row justify-content-center">
-                        <div class="col-md-6 text-center">
-                            <h1>予算管理システム</h1>
-                            <div class="mt-4">
-                                <a href="{login_url}" class="btn btn-primary btn-lg">ログイン</a>
-                            </div>
+        return '''
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <title>ページが見つかりません - 予算管理システム</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6 text-center">
+                        <h1>ページが見つかりません</h1>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">トップページに戻る</a>
                         </div>
                     </div>
                 </div>
-            </body>
-            </html>
-            ''', 200
+            </div>
+        </body>
+        </html>
+        ''', 404
     
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
-        with app.app_context():
-            home_url = url_for('main.index', _external=True)
-            return f'''
-            <!DOCTYPE html>
-            <html lang="ja">
-            <head>
-                <meta charset="utf-8">
-                <title>エラー - 予算管理システム</title>
-                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-            </head>
-            <body>
-                <div class="container mt-5">
-                    <div class="row justify-content-center">
-                        <div class="col-md-6 text-center">
-                            <h1>エラーが発生しました</h1>
-                            <div class="mt-4">
-                                <a href="{home_url}" class="btn btn-primary">トップページに戻る</a>
-                            </div>
+        return '''
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <title>エラー - 予算管理システム</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6 text-center">
+                        <h1>エラーが発生しました</h1>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">トップページに戻る</a>
                         </div>
                     </div>
                 </div>
-            </body>
-            </html>
-            ''', 500
+            </div>
+        </body>
+        </html>
+        ''', 500
     
     return app
 
