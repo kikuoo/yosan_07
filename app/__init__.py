@@ -136,19 +136,30 @@ def create_app():
         return User.query.get(int(user_id))
     
     with app.app_context():
-        # データベースのテーブルが存在するか確認
-        inspector = inspect(db.engine)
-        existing_tables = inspector.get_table_names()
-        
-        if not existing_tables:
-            # テーブルが存在しない場合のみ作成
-            try:
+        try:
+            # データベースのテーブルが存在するか確認
+            inspector = inspect(db.engine)
+            existing_tables = inspector.get_table_names()
+            required_tables = ['user', 'property', 'construction_budget', 'payment']
+            
+            # 必要なテーブルが全て存在するか確認
+            missing_tables = [table for table in required_tables if table not in existing_tables]
+            
+            if missing_tables:
+                # 不足しているテーブルがある場合、全てのテーブルを作成
+                app.logger.info(f'不足しているテーブルがあります: {", ".join(missing_tables)}')
                 db.create_all()
-                app.logger.info('データベーステーブルを作成しました')
-            except Exception as e:
-                app.logger.error(f'データベーステーブルの作成中にエラーが発生しました: {str(e)}')
-        else:
-            app.logger.info('データベーステーブルは既に存在します')
+                app.logger.info('全てのテーブルを作成しました')
+            else:
+                app.logger.info('必要なテーブルは全て存在します')
+                
+            # テーブルの存在を再確認
+            existing_tables = inspector.get_table_names()
+            app.logger.info(f'現在のテーブル一覧: {", ".join(existing_tables)}')
+            
+        except Exception as e:
+            app.logger.error(f'データベーステーブルの確認/作成中にエラーが発生しました: {str(e)}')
+            app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
 
     # ルートの定義
     @app.route('/')
@@ -544,7 +555,7 @@ def create_app():
     @login_required
     def property_detail(property_id):
         try:
-            from app.models import Property, ConstructionBudget
+            from app.models import Property, ConstructionBudget, Payment
             property = Property.query.get_or_404(property_id)
             
             # 権限チェック
@@ -559,11 +570,43 @@ def create_app():
             total_amount = 0
             for budget in budgets:
                 total_amount += budget.amount
+                
+                # 支払い情報の取得と集計
+                payments = Payment.query.filter_by(budget_id=budget.id).all()
+                contract_payments = [p for p in payments if p.is_contract]
+                non_contract_payments = [p for p in payments if not p.is_contract]
+                contract_total = sum(p.amount for p in contract_payments)
+                non_contract_total = sum(p.amount for p in non_contract_payments)
+                total_paid = contract_total + non_contract_total
+                remaining = budget.amount - total_paid
+
+                # 支払いリストのHTML生成
+                payments_html = ''
+                if payments:
+                    payments_html = '<div class="mt-3"><h6>支払い履歴</h6><table class="table table-sm"><thead><tr><th>年月</th><th>業者名</th><th>金額</th><th>区分</th><th>備考</th></tr></thead><tbody>'
+                    for payment in sorted(payments, key=lambda x: (x.year, x.month)):
+                        payment_type = "請負" if payment.is_contract else "請負外"
+                        payments_html += f'''
+                        <tr>
+                            <td>{payment.year}年{payment.month}月</td>
+                            <td>{payment.vendor_name}</td>
+                            <td>{payment.amount:,}円</td>
+                            <td>{payment_type}</td>
+                            <td>{payment.note or ''}</td>
+                        </tr>
+                        '''
+                    payments_html += '</tbody></table></div>'
+
                 budgets_html += f'''
                 <tr>
                     <td>{budget.code}</td>
                     <td>{budget.name}</td>
                     <td>{budget.amount:,}円</td>
+                    <td>
+                        <div>請負支払計: {contract_total:,}円</div>
+                        <div>請負外支払計: {non_contract_total:,}円</div>
+                        <div>支払残: {remaining:,}円</div>
+                    </td>
                     <td>
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#paymentModal{budget.id}">
@@ -576,115 +619,7 @@ def create_app():
                                 削除
                             </button>
                         </div>
-
-                        <!-- 支払い入力モーダル -->
-                        <div class="modal fade" id="paymentModal{budget.id}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">支払い入力 - {budget.name}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form action="/budget/{budget.id}/payment/add" method="POST">
-                                            <div class="row mb-3">
-                                                <div class="col-6">
-                                                    <label for="payment_year" class="form-label">支払年</label>
-                                                    <input type="number" class="form-control" id="payment_year" name="payment_year" min="2000" max="2100" value="{datetime.now().year}" required>
-                                                </div>
-                                                <div class="col-6">
-                                                    <label for="payment_month" class="form-label">支払月</label>
-                                                    <select class="form-select" id="payment_month" name="payment_month" required>
-                                                        {' '.join([f'<option value="{i}"{" selected" if i == datetime.now().month else ""}>{i}月</option>' for i in range(1, 13)])}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="vendor_name" class="form-label">支払業者名</label>
-                                                <input type="text" class="form-control" id="vendor_name" name="vendor_name" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="payment_amount" class="form-label">支払金額</label>
-                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">支払区分</label>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_true" value="true" checked>
-                                                    <label class="form-check-label" for="is_contract_true">請負</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_false" value="false">
-                                                    <label class="form-check-label" for="is_contract_false">請負外</label>
-                                                </div>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="payment_note" class="form-label">備考</label>
-                                                <textarea class="form-control" id="payment_note" name="payment_note" rows="3"></textarea>
-                                            </div>
-                                            <div class="text-end">
-                                                <button type="submit" class="btn btn-primary">登録</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 工種編集モーダル -->
-                        <div class="modal fade" id="editBudgetModal{budget.id}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">工種編集</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form action="/budget/{budget.id}/edit" method="POST">
-                                            <div class="mb-3">
-                                                <label for="code" class="form-label">工種コード</label>
-                                                <select class="form-select" id="code" name="code" required>
-                                                    {' '.join([f'<option value="{code}"{" selected" if code == budget.code else ""}>{code} - {name}</option>' for code, name in CONSTRUCTION_TYPES.items()])}
-                                                </select>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="name" class="form-label">工種名</label>
-                                                <input type="text" class="form-control" id="name" name="name" value="{budget.name}" readonly>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="amount" class="form-label">金額</label>
-                                                <input type="number" class="form-control" id="amount" name="amount" value="{budget.amount}" required>
-                                            </div>
-                                            <div class="text-end">
-                                                <button type="submit" class="btn btn-primary">更新</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 工種削除確認モーダル -->
-                        <div class="modal fade" id="deleteBudgetModal{budget.id}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">工種削除の確認</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p>工種「{budget.name}」を削除してもよろしいですか？</p>
-                                        <p class="text-danger">この操作は取り消せません。</p>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <form action="/budget/{budget.id}/delete" method="POST">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                                            <button type="submit" class="btn btn-danger">削除</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        {payments_html}
                     </td>
                 </tr>
                 '''
@@ -728,7 +663,8 @@ def create_app():
                                 <tr>
                                     <th>工種コード</th>
                                     <th>工種名</th>
-                                    <th>金額</th>
+                                    <th>予算金額</th>
+                                    <th>支払状況</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
@@ -751,11 +687,14 @@ def create_app():
                                 <form action="/property/{property_id}/budget/add" method="POST">
                                     <div class="mb-3">
                                         <label for="code" class="form-label">工種コード</label>
-                                        <input type="text" class="form-control" id="code" name="code" required>
+                                        <select class="form-select" id="code" name="code" onchange="updateConstructionName(this)" required>
+                                            <option value="">工種を選択してください</option>
+''' + '\n'.join([f'                                            <option value="{code}" data-name="{name}">{code} - {name}</option>' for code, name in CONSTRUCTION_TYPES.items()]) + '''
+                                        </select>
                                     </div>
                                     <div class="mb-3">
                                         <label for="name" class="form-label">工種名</label>
-                                        <input type="text" class="form-control" id="name" name="name" required>
+                                        <input type="text" class="form-control" id="name" name="name" readonly required>
                                     </div>
                                     <div class="mb-3">
                                         <label for="amount" class="form-label">金額</label>
@@ -771,6 +710,13 @@ def create_app():
                 </div>
 
                 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+                <script>
+                    function updateConstructionName(selectElement) {
+                        const nameInput = document.getElementById('name');
+                        const selectedOption = selectElement.options[selectElement.selectedIndex];
+                        nameInput.value = selectedOption.value ? selectedOption.dataset.name : '';
+                    }
+                </script>
             </body>
             </html>
             '''
