@@ -53,11 +53,16 @@ class Payment(db.Model):
     is_contract = db.Column(db.Boolean, nullable=False, default=True)  # True: 請負, False: 請負外
     payment_type = db.Column(db.String(50), nullable=False)  # '請負' または '請負外'
     note = db.Column(db.Text)
-    budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
+    construction_budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # リレーションシップ
+    budget = db.relationship('ConstructionBudget', backref=db.backref('payments', lazy=True))
+
     def __init__(self, **kwargs):
+        if 'budget_id' in kwargs:
+            kwargs['construction_budget_id'] = kwargs.pop('budget_id')
         super(Payment, self).__init__(**kwargs)
         self.payment_type = '請負' if self.is_contract else '請負外'
 
