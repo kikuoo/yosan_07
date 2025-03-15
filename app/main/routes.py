@@ -8,9 +8,14 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/', methods=['GET', 'HEAD'])
 def index():
-    if request.method == 'HEAD':
-        return '', 200
-    return redirect(url_for('auth.login'))
+    try:
+        current_app.logger.info(f'ルートパスへのアクセス: {request.method}')
+        if request.method == 'HEAD':
+            return '', 200
+        return redirect(url_for('auth.login'))
+    except Exception as e:
+        current_app.logger.error(f'ルートパス処理エラー: {str(e)}')
+        return 'エラーが発生しました', 500
 
 @bp.route('/budgets')
 @login_required
