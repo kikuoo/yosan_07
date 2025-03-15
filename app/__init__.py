@@ -104,16 +104,10 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev')
     
     # データベース設定
-    if os.environ.get('DATABASE_URL'):
-        # RenderのPostgreSQLのURLを修正（postgres://からpostgresql://に変更）
-        database_url = os.environ.get('DATABASE_URL')
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    else:
-        # 開発環境用のSQLite設定
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'yosan.db')
-    
+    database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/yosan')
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # セッション設定
@@ -137,30 +131,27 @@ def create_app():
     
     with app.app_context():
         try:
-            # データベースのテーブルが存在するか確認
-            inspector = inspect(db.engine)
-            existing_tables = inspector.get_table_names()
-            required_tables = ['user', 'property', 'construction_budget', 'payment']
+            # データベースのテーブルを作成
+            db.create_all()
+            app.logger.info('データベーステーブルを作成しました')
             
-            # 必要なテーブルが全て存在するか確認
-            missing_tables = [table for table in required_tables if table not in existing_tables]
-            
-            if missing_tables:
-                # 不足しているテーブルがある場合、全てのテーブルを作成
-                app.logger.info(f'不足しているテーブルがあります: {", ".join(missing_tables)}')
-                db.create_all()
-                app.logger.info('全てのテーブルを作成しました')
-            else:
-                app.logger.info('必要なテーブルは全て存在します')
-                
-            # テーブルの存在を再確認
-            existing_tables = inspector.get_table_names()
-            app.logger.info(f'現在のテーブル一覧: {", ".join(existing_tables)}')
+            # 管理者ユーザーの作成
+            admin = User.query.filter_by(username='admin').first()
+            if not admin:
+                admin = User(
+                    username='admin',
+                    email='admin@example.com',
+                    is_admin=True
+                )
+                admin.set_password('admin')
+                db.session.add(admin)
+                db.session.commit()
+                app.logger.info('管理者ユーザーを作成しました')
             
         except Exception as e:
-            app.logger.error(f'データベーステーブルの確認/作成中にエラーが発生しました: {str(e)}')
+            app.logger.error(f'データベース初期化エラー: {str(e)}')
             app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
-
+            
     # ルートの定義
     @app.route('/')
     def index():
