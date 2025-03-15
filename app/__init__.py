@@ -659,13 +659,21 @@ def create_app():
                 payments = Payment.query.filter_by(construction_budget_id=budget.id).all()
                 contract_payments = [p for p in payments if p.is_contract]
                 non_contract_payments = [p for p in payments if not p.is_contract]
+                
+                # 請負支払いの合計（出来高支払いを含む）
                 contract_total = sum(p.amount for p in contract_payments)
+                # 請負外支払いの合計
                 non_contract_total = sum(p.amount for p in non_contract_payments)
+                # 総支払額
                 total_paid = contract_total + non_contract_total
-                remaining = budget.amount - total_paid
+                # 請負残額（予算額から請負支払い合計を引いた額）
+                contract_remaining = budget.amount - contract_total
 
                 # 請負支払いのHTML生成
                 contract_payments_html = ''
+                non_contract_payments_html = ''
+
+                # 請負支払いの処理
                 if contract_payments:
                     # 業者ごとにグループ化
                     vendor_groups = {}
@@ -677,26 +685,15 @@ def create_app():
                     # 業者ごとのHTML生成
                     vendor_cards = []
                     for vendor_name, vendor_payments in vendor_groups.items():
+                        # 業者ごとの支払い合計
+                        vendor_total = sum(p.amount for p in vendor_payments)
+                        
                         # 支払い履歴の行を生成
                         payment_rows = []
                         for p in sorted(vendor_payments, key=lambda x: (x.year, x.month)):
                             payment_rows.append(
                                 f'<tr><td>{p.year}年{p.month}月</td><td>{p.amount:,}円</td><td>{p.note or ""}</td></tr>'
                             )
-                        
-                        # 年の選択肢を生成
-                        year_options = []
-                        current_year = datetime.now().year
-                        for year in range(2020, current_year + 2):
-                            selected = 'selected' if year == current_year else ''
-                            year_options.append(f'<option value="{year}" {selected}>{year}年</option>')
-                        
-                        # 月の選択肢を生成
-                        month_options = []
-                        current_month = datetime.now().month
-                        for month in range(1, 13):
-                            selected = 'selected' if month == current_month else ''
-                            month_options.append(f'<option value="{month}" {selected}>{month}月</option>')
                         
                         # 業者カードを生成
                         vendor_card = f'''
@@ -712,7 +709,7 @@ def create_app():
                                         {''.join(payment_rows)}
                                         <tr class="table-info">
                                             <td class="text-end">支払合計</td>
-                                            <td>{sum(p.amount for p in vendor_payments):,}円</td>
+                                            <td>{vendor_total:,}円</td>
                                             <td></td>
                                         </tr>
                                     </tbody>
@@ -745,7 +742,10 @@ def create_app():
                                             <div class="mb-3">
                                                 <label for="payment_amount" class="form-label">支払い金額</label>
                                                 <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
-                                                <div class="form-text">支払合計: {sum(p.amount for p in vendor_payments):,}円</div>
+                                                <div class="form-text">
+                                                    <div>業者支払合計: {vendor_total:,}円</div>
+                                                    <div>工種請負残額: {contract_remaining:,}円</div>
+                                                </div>
                                             </div>
                                             <input type="hidden" name="vendor_name" value="{vendor_name}">
                                             <input type="hidden" name="is_contract" value="true">
@@ -770,12 +770,77 @@ def create_app():
                                 <div class="row">
                                     <div class="col">
                                         <div>請負支払合計: {contract_total:,}円</div>
-                                        <div>請負残額: {budget.amount - contract_total:,}円</div>
+                                        <div>請負残額: {contract_remaining:,}円</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>'''
+
+                # 請負外支払いの処理
+                if non_contract_payments:
+                    # 業者ごとにグループ化
+                    non_contract_vendor_groups = {}
+                    for payment in non_contract_payments:
+                        if payment.vendor_name not in non_contract_vendor_groups:
+                            non_contract_vendor_groups[payment.vendor_name] = []
+                        non_contract_vendor_groups[payment.vendor_name].append(payment)
+                    
+                    # 業者ごとのHTML生成
+                    non_contract_vendor_cards = []
+                    for vendor_name, vendor_payments in non_contract_vendor_groups.items():
+                        # 支払い履歴の行を生成
+                        payment_rows = []
+                        for p in sorted(vendor_payments, key=lambda x: (x.year, x.month)):
+                            payment_rows.append(
+                                f'<tr><td>{p.year}年{p.month}月</td><td>{p.amount:,}円</td><td>{p.note or ""}</td></tr>'
+                            )
+                        
+                        # 業者カードを生成
+                        vendor_card = f'''
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <span>{vendor_name}</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm mb-0">
+                                    <thead><tr><th>年月</th><th>金額</th><th>備考</th></tr></thead>
+                                    <tbody>
+                                        {''.join(payment_rows)}
+                                        <tr class="table-info">
+                                            <td class="text-end">支払合計</td>
+                                            <td>{sum(p.amount for p in vendor_payments):,}円</td>
+                                            <td></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>'''
+                        non_contract_vendor_cards.append(vendor_card)
+                    
+                    # 請負外支払い全体のHTML生成
+                    non_contract_payments_html = f'''
+                    <div class="col-md-6">
+                        <h6 class="mb-2">請負外支払</h6>
+                        {''.join(non_contract_vendor_cards)}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col">
+                                        <div>請負外支払合計: {non_contract_total:,}円</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>'''
+
+                # 支払い情報の表示
+                payments_display = f'''
+                <div class="row">
+                    {contract_payments_html}
+                    {non_contract_payments_html}
+                </div>
+                '''
 
                 budgets_html += f'''
                 <tr>
@@ -785,7 +850,7 @@ def create_app():
                     <td>
                         <div>請負支払計: {contract_total:,}円</div>
                         <div>請負外支払計: {non_contract_total:,}円</div>
-                        <div>支払残: {remaining:,}円</div>
+                        <div>支払残: {contract_remaining:,}円</div>
                     </td>
                     <td>
                         <div class="btn-group" role="group">
@@ -799,7 +864,7 @@ def create_app():
                                 削除
                             </button>
                         </div>
-                        {contract_payments_html}
+                        {payments_display}
 
                         <!-- 支払い入力モーダル -->
                         <div class="modal fade" id="paymentModal{budget.id}" tabindex="-1">
