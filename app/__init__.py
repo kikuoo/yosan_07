@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -25,6 +25,12 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     
+    # ユーザーローダーの設定
+    from app.models import User
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+    
     # ブループリントの登録
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
@@ -35,11 +41,13 @@ def create_app():
     # エラーハンドラの登録
     @app.errorhandler(404)
     def not_found_error(error):
-        return '', 200 if request.method == 'HEAD' else 404
+        if request.method == 'HEAD':
+            return '', 200
+        return redirect(url_for('auth.login'))
     
     @app.errorhandler(500)
     def internal_error(error):
-        return '', 500
+        return redirect(url_for('auth.login'))
     
     return app
 

@@ -6,8 +6,10 @@ from datetime import datetime
 
 bp = Blueprint('main', __name__)
 
-@bp.route('/')
+@bp.route('/', methods=['GET', 'HEAD'])
 def index():
+    if request.method == 'HEAD':
+        return '', 200
     return redirect(url_for('auth.login'))
 
 @bp.route('/budgets')
