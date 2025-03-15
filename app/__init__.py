@@ -664,133 +664,111 @@ def create_app():
                 total_paid = contract_total + non_contract_total
                 remaining = budget.amount - total_paid
 
-                # 支払いリストのHTML生成
-                payments_html = ''
-                if payments:
-                    # 請負支払いのHTML
-                    contract_payments_html = ''
-                    if contract_payments:
-                        contract_payments_html = f'''
-                        <div class="col-md-6">
-                            <h6 class="mb-2">請負支払</h6>
-                            <div class="mb-2">
-                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}">
+                # 請負支払いのHTML
+                contract_payments_html = ''
+                if contract_payments:
+                    # 業者ごとにグループ化
+                    vendor_groups = {}
+                    for payment in contract_payments:
+                        if payment.vendor_name not in vendor_groups:
+                            vendor_groups[payment.vendor_name] = []
+                        vendor_groups[payment.vendor_name].append(payment)
+                    
+                    contract_payments_html = f'''
+                    <div class="col-md-6">
+                        <h6 class="mb-2">請負支払</h6>
+                        {" ".join([f"""
+                        <div class="card mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>{vendor_name}</span>
+                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}_{vendor_name.replace(' ', '_')}">
                                     出来高支払い
                                 </button>
                             </div>
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>年月</th>
-                                        <th>業者名</th>
-                                        <th>金額</th>
-                                        <th>備考</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {" ".join([f"""
-                                    <tr>
-                                        <td>{payment.year}年{payment.month}月</td>
-                                        <td>{payment.vendor_name}</td>
-                                        <td>{payment.amount:,}円</td>
-                                        <td>
-                                            {payment.note or ''}
-                                            <button type="button" class="btn btn-sm btn-success ms-2" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}_{payment.id}">
-                                                出来高支払い
-                                            </button>
-                                            <!-- 出来高支払い入力モーダル -->
-                                            <div class="modal fade" id="progressPaymentModal{budget.id}_{payment.id}" tabindex="-1">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title">出来高支払い入力</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            <form action="/budget/{budget.id}/payment/add" method="POST">
-                                                                <div class="row mb-3">
-                                                                    <div class="col">
-                                                                        <label for="payment_year" class="form-label">年</label>
-                                                                        <input type="number" class="form-control" id="payment_year" name="payment_year" required min="2000" max="2100">
-                                                                    </div>
-                                                                    <div class="col">
-                                                                        <label for="payment_month" class="form-label">月</label>
-                                                                        <input type="number" class="form-control" id="payment_month" name="payment_month" required min="1" max="12">
-                                                                    </div>
-                                                                </div>
-                                                                <div class="mb-3">
-                                                                    <label for="payment_amount" class="form-label">支払い金額</label>
-                                                                    <input type="number" class="form-control" id="payment_amount" name="payment_amount" required max="{budget.amount - contract_total}">
-                                                                    <div class="form-text">請負残額: {budget.amount - contract_total:,}円</div>
-                                                                </div>
-                                                                <input type="hidden" name="vendor_name" value="{payment.vendor_name}">
-                                                                <input type="hidden" name="is_contract" value="true">
-                                                                <input type="hidden" name="payment_note" value="出来高支払">
-                                                                <div class="text-end">
-                                                                    <button type="submit" class="btn btn-primary">登録</button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>年月</th>
+                                            <th>金額</th>
+                                            <th>備考</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {" ".join([f"""
+                                        <tr>
+                                            <td>{p.year}年{p.month}月</td>
+                                            <td>{p.amount:,}円</td>
+                                            <td>{p.note or ''}</td>
+                                        </tr>
+                                        """ for p in sorted(payments, key=lambda x: (x.year, x.month))])}
+                                        <tr class="table-info">
+                                            <td class="text-end">支払合計</td>
+                                            <td>{sum(p.amount for p in payments):,}円</td>
+                                            <td></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 出来高支払い入力モーダル -->
+                        <div class="modal fade" id="progressPaymentModal{budget.id}_{vendor_name.replace(' ', '_')}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">{vendor_name} - 出来高支払い入力</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form action="/budget/{budget.id}/payment/add" method="POST">
+                                            <div class="row mb-3">
+                                                <div class="col">
+                                                    <label for="payment_year" class="form-label">年</label>
+                                                    <select class="form-select" id="payment_year" name="payment_year" required>
+                                                        {" ".join([f"""
+                                                        <option value="{year}" {"selected" if year == datetime.now().year else ""}>{year}年</option>
+                                                        """ for year in range(2020, datetime.now().year + 2)])}
+                                                    </select>
+                                                </div>
+                                                <div class="col">
+                                                    <label for="payment_month" class="form-label">月</label>
+                                                    <select class="form-select" id="payment_month" name="payment_month" required>
+                                                        {" ".join([f"""
+                                                        <option value="{month}" {"selected" if month == datetime.now().month else ""}>{month}月</option>
+                                                        """ for month in range(1, 13)])}
+                                                    </select>
                                                 </div>
                                             </div>
-                                        </td>
-                                    </tr>
-                                    """ for payment in sorted(contract_payments, key=lambda x: (x.year, x.month))])}
-                                    <tr class="table-info">
-                                        <td colspan="2" class="text-end">請負支払合計</td>
-                                        <td>{contract_total:,}円</td>
-                                        <td></td>
-                                    </tr>
-                                    <tr class="table-warning">
-                                        <td colspan="2" class="text-end">請負残額</td>
-                                        <td>{budget.amount - contract_total:,}円</td>
-                                        <td></td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                            <div class="mb-3">
+                                                <label for="payment_amount" class="form-label">支払い金額</label>
+                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
+                                                <div class="form-text">
+                                                    <div>支払合計: {sum(p.amount for p in payments):,}円</div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="vendor_name" value="{vendor_name}">
+                                            <input type="hidden" name="is_contract" value="true">
+                                            <input type="hidden" name="payment_note" value="出来高支払">
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">登録</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        '''
-
-                    # 請負外支払いのHTML
-                    non_contract_payments_html = ''
-                    if non_contract_payments:
-                        non_contract_payments_html = f'''
-                        <div class="col-md-6">
-                            <h6 class="mb-2">請負外支払</h6>
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>年月</th>
-                                        <th>業者名</th>
-                                        <th>金額</th>
-                                        <th>備考</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {" ".join([f"""
-                                    <tr>
-                                        <td>{payment.year}年{payment.month}月</td>
-                                        <td>{payment.vendor_name}</td>
-                                        <td>{payment.amount:,}円</td>
-                                        <td>{payment.note or ''}</td>
-                                    </tr>
-                                    """ for payment in sorted(non_contract_payments, key=lambda x: (x.year, x.month))])}
-                                    <tr class="table-info">
-                                        <td colspan="2" class="text-end">請負外支払合計</td>
-                                        <td>{non_contract_total:,}円</td>
-                                        <td></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        '''
-
-                    payments_html = f'''
-                    <div class="mt-3">
-                        <div class="row">
-                            {contract_payments_html}
-                            {non_contract_payments_html}
+                        """ for vendor_name, payments in vendor_groups.items()])}
+                        
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col">
+                                        <div>請負支払合計: {contract_total:,}円</div>
+                                        <div>請負残額: {budget.amount - contract_total:,}円</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     '''
@@ -817,7 +795,7 @@ def create_app():
                                 削除
                             </button>
                         </div>
-                        {payments_html}
+                        {contract_payments_html}
 
                         <!-- 支払い入力モーダル -->
                         <div class="modal fade" id="paymentModal{budget.id}" tabindex="-1">
@@ -832,11 +810,19 @@ def create_app():
                                             <div class="row mb-3">
                                                 <div class="col">
                                                     <label for="payment_year" class="form-label">年</label>
-                                                    <input type="number" class="form-control" id="payment_year" name="payment_year" required min="2000" max="2100">
+                                                    <select class="form-select" id="payment_year" name="payment_year" required>
+                                                        {" ".join([f"""
+                                                        <option value="{year}" {"selected" if year == datetime.now().year else ""}>{year}年</option>
+                                                        """ for year in range(2020, datetime.now().year + 2)])}
+                                                    </select>
                                                 </div>
                                                 <div class="col">
                                                     <label for="payment_month" class="form-label">月</label>
-                                                    <input type="number" class="form-control" id="payment_month" name="payment_month" required min="1" max="12">
+                                                    <select class="form-select" id="payment_month" name="payment_month" required>
+                                                        {" ".join([f"""
+                                                        <option value="{month}" {"selected" if month == datetime.now().month else ""}>{month}月</option>
+                                                        """ for month in range(1, 13)])}
+                                                    </select>
                                                 </div>
                                             </div>
                                             <div class="mb-3">
