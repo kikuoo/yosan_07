@@ -38,11 +38,135 @@ def budgets():
         current_app.logger.info('予算ページへのアクセス')
         current_app.logger.info(f'ユーザーID: {current_user.id}')
         properties = Property.query.filter_by(user_id=current_user.id).all()
-        return render_template('budgets.html', properties=properties)
+        
+        # 物件リストのHTMLを生成
+        properties_html = ''
+        for property in properties:
+            properties_html += f'''
+            <tr>
+                <td>{property.code}</td>
+                <td>{property.name}</td>
+                <td>{property.contract_amount:,}円</td>
+                <td>{property.budget_amount:,}円</td>
+                <td>
+                    <a href="/property/{property.id}" class="btn btn-sm btn-info">詳細</a>
+                </td>
+            </tr>
+            '''
+        
+        return f'''
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <title>物件一覧 - 予算管理システム</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+                <div class="container">
+                    <a class="navbar-brand" href="/">予算管理システム</a>
+                    <div class="navbar-nav ms-auto">
+                        <a class="nav-link" href="/auth/logout">ログアウト</a>
+                    </div>
+                </div>
+            </nav>
+            
+            <div class="container mt-4">
+                <div class="row mb-4">
+                    <div class="col">
+                        <h2>物件一覧</h2>
+                    </div>
+                    <div class="col text-end">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPropertyModal">
+                            新規物件登録
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>物件コード</th>
+                                <th>物件名</th>
+                                <th>契約金額</th>
+                                <th>予算金額</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {properties_html}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 新規物件登録モーダル -->
+            <div class="modal fade" id="addPropertyModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">新規物件登録</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form action="/property/add" method="POST">
+                                <div class="mb-3">
+                                    <label for="code" class="form-label">物件コード</label>
+                                    <input type="text" class="form-control" id="code" name="code" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">物件名</label>
+                                    <input type="text" class="form-control" id="name" name="name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="contract_amount" class="form-label">契約金額</label>
+                                    <input type="number" class="form-control" id="contract_amount" name="contract_amount" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="budget_amount" class="form-label">予算金額</label>
+                                    <input type="number" class="form-control" id="budget_amount" name="budget_amount" required>
+                                </div>
+                                <div class="text-end">
+                                    <button type="submit" class="btn btn-primary">登録</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        </body>
+        </html>
+        '''
     except Exception as e:
         current_app.logger.error(f'予算ページ処理エラー: {str(e)}')
         current_app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
-        return render_template('error.html', error=str(e)), 500
+        return f'''
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <title>エラー - 予算管理システム</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6 text-center">
+                        <h1>エラーが発生しました</h1>
+                        <p class="text-danger">{str(e)}</p>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">トップページに戻る</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        ''', 500
 
 @bp.route('/property/add', methods=['POST'])
 @login_required
