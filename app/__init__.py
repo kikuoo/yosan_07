@@ -709,7 +709,10 @@ def create_app():
                         vendor_card = f'''
                         <div class="card mb-3">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>{vendor_name}</span>
+                                <div>
+                                    <span class="fw-bold">{vendor_name}</span>
+                                    <span class="ms-3 text-muted">請負金額: {budget.amount:,}円</span>
+                                </div>
                                 <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}_{vendor_name.replace(" ", "_")}">出来高支払い</button>
                             </div>
                             <div class="card-body p-0">
@@ -854,144 +857,38 @@ def create_app():
 
                 budgets_html += f'''
                 <tr>
-                    <td>{budget.code}</td>
-                    <td>{budget.name}</td>
-                    <td>{budget.amount:,}円</td>
-                    <td>
-                        <div>請負支払計: {contract_total:,}円</div>
-                        <div>請負外支払計: {non_contract_total:,}円</div>
-                        <div>支払残: {contract_remaining:,}円</div>
-                    </td>
-                    <td>
-                        <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#paymentModal{budget.id}">
-                                支払い入力
-                            </button>
-                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editBudgetModal{budget.id}">
-                                編集
-                            </button>
-                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal{budget.id}">
-                                削除
-                            </button>
-                        </div>
-                        {payments_display}
-
-                        <!-- 支払い入力モーダル -->
-                        <div class="modal fade" id="paymentModal{budget.id}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">支払い入力</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form action="/budget/{budget.id}/payment/add" method="POST">
-                                            <div class="row mb-3">
-                                                <div class="col">
-                                                    <label for="payment_year" class="form-label">年</label>
-                                                    <select class="form-select" id="payment_year" name="payment_year" required>
-                                                        {" ".join([f"""
-                                                        <option value="{year}" {"selected" if year == datetime.now().year else ""}>{year}年</option>
-                                                        """ for year in range(2020, datetime.now().year + 2)])}
-                                                    </select>
-                                                </div>
-                                                <div class="col">
-                                                    <label for="payment_month" class="form-label">月</label>
-                                                    <select class="form-select" id="payment_month" name="payment_month" required>
-                                                        {" ".join([f"""
-                                                        <option value="{month}" {"selected" if month == datetime.now().month else ""}>{month}月</option>
-                                                        """ for month in range(1, 13)])}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="vendor_name" class="form-label">業者名</label>
-                                                <input type="text" class="form-control" id="vendor_name" name="vendor_name" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="payment_amount" class="form-label">金額</label>
-                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_true{budget.id}" value="true" checked>
-                                                    <label class="form-check-label" for="is_contract_true{budget.id}">
-                                                        請負
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_false{budget.id}" value="false">
-                                                    <label class="form-check-label" for="is_contract_false{budget.id}">
-                                                        請負外
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="payment_note" class="form-label">備考</label>
-                                                <textarea class="form-control" id="payment_note" name="payment_note" rows="3"></textarea>
-                                            </div>
-                                            <div class="text-end">
-                                                <button type="submit" class="btn btn-primary">登録</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
+                    <td colspan="5">
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h4 class="mb-0">{budget.code} - {budget.name}</h4>
                             </div>
-                        </div>
-
-                        <!-- 工種編集モーダル -->
-                        <div class="modal fade" id="editBudgetModal{budget.id}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">工種編集</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form action="/budget/{budget.id}/edit" method="POST">
-                                            <div class="mb-3">
-                                                <label for="code" class="form-label">工種コード</label>
-                                                <select class="form-select" id="code" name="code" onchange="updateConstructionName(this)" required>
-                                                    <option value="">工種を選択してください</option>
-''' + '\n'.join([f'                                                    <option value="{code}" data-name="{name}" {"selected" if code == budget.code else ""}>{code} - {name}</option>' for code, name in CONSTRUCTION_TYPES.items()]) + '''
-                                                </select>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="name" class="form-label">工種名</label>
-                                                <input type="text" class="form-control" id="name" name="name" value="{budget.name}" readonly required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="amount" class="form-label">金額</label>
-                                                <input type="number" class="form-control" id="amount" name="amount" value="{budget.amount}" required>
-                                            </div>
-                                            <div class="text-end">
-                                                <button type="submit" class="btn btn-primary">更新</button>
-                                            </div>
-                                        </form>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col">
+                                        <h5>予算金額: {budget.amount:,}円</h5>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- 工種削除確認モーダル -->
-                        <div class="modal fade" id="deleteBudgetModal{budget.id}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">工種削除の確認</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                <div class="row">
+                                    <div class="col">
+                                        <div>請負支払計: {contract_total:,}円</div>
+                                        <div>請負外支払計: {non_contract_total:,}円</div>
+                                        <div>支払残: {contract_remaining:,}円</div>
                                     </div>
-                                    <div class="modal-body">
-                                        <p>工種「{budget.name}」を削除してもよろしいですか？</p>
-                                        <p class="text-danger">この操作は取り消せません。</p>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <form action="/budget/{budget.id}/delete" method="POST">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                                            <button type="submit" class="btn btn-danger">削除</button>
-                                        </form>
+                                    <div class="col text-end">
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#paymentModal{budget.id}">
+                                                支払い入力
+                                            </button>
+                                            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#editBudgetModal{budget.id}">
+                                                編集
+                                            </button>
+                                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal{budget.id}">
+                                                削除
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                                {payments_display}
                             </div>
                         </div>
                     </td>
@@ -1312,7 +1209,7 @@ def create_app():
         </body>
         </html>
         ''', 404
-
+    
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
@@ -1338,7 +1235,7 @@ def create_app():
         </body>
         </html>
         ''', 500
-
+    
     return app
 
 # アプリケーションインスタンスを作成
