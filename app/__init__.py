@@ -103,8 +103,9 @@ def create_app():
                                             <label for="password" class="form-label">パスワード</label>
                                             <input type="password" class="form-control" id="password" name="password" required>
                                         </div>
-                                        <div class="d-grid">
+                                        <div class="d-grid gap-2">
                                             <button type="submit" class="btn btn-primary">ログイン</button>
+                                            <a href="/register" class="btn btn-secondary">新規登録</a>
                                         </div>
                                     </form>
                                 </div>
@@ -250,6 +251,87 @@ def create_app():
             app.logger.error(f'予算ページ処理エラー: {str(e)}')
             app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
             return redirect('/')
+
+    @app.route('/register', methods=['GET', 'POST'])
+    def register():
+        if request.method == 'GET':
+            return '''
+            <!DOCTYPE html>
+            <html lang="ja">
+            <head>
+                <meta charset="utf-8">
+                <title>新規登録 - 予算管理システム</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            </head>
+            <body>
+                <div class="container mt-5">
+                    <div class="row justify-content-center">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="mb-0">新規登録</h4>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST">
+                                        <div class="mb-3">
+                                            <label for="username" class="form-label">ユーザー名</label>
+                                            <input type="text" class="form-control" id="username" name="username" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="email" class="form-label">メールアドレス</label>
+                                            <input type="email" class="form-control" id="email" name="email" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="password" class="form-label">パスワード</label>
+                                            <input type="password" class="form-control" id="password" name="password" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="confirm_password" class="form-label">パスワード（確認）</label>
+                                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                                        </div>
+                                        <div class="d-grid gap-2">
+                                            <button type="submit" class="btn btn-primary">登録</button>
+                                            <a href="/login" class="btn btn-secondary">ログインに戻る</a>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            '''
+        
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not username or not email or not password or not confirm_password:
+            return redirect('/register')
+        
+        if password != confirm_password:
+            return redirect('/register')
+        
+        # ユーザー名とメールアドレスの重複チェック
+        if User.query.filter_by(username=username).first() is not None:
+            return redirect('/register')
+        if User.query.filter_by(email=email).first() is not None:
+            return redirect('/register')
+        
+        # 新規ユーザーの作成
+        user = User(username=username, email=email)
+        user.set_password(password)
+        db.session.add(user)
+        try:
+            db.session.commit()
+            login_user(user)
+            return redirect('/budgets')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'ユーザー登録エラー: {str(e)}')
+            return redirect('/register')
 
     # エラーハンドラ
     @app.errorhandler(404)
