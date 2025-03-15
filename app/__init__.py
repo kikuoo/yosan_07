@@ -162,6 +162,14 @@ def create_app():
             if 'payment' in existing_tables:
                 columns = {column['name'] for column in inspector.get_columns('payment')}
                 
+                # payment_type カラムの確認と追加
+                if 'payment_type' not in columns:
+                    app.logger.info('payment テーブルに payment_type カラムを追加します')
+                    with db.engine.connect() as conn:
+                        conn.execute(db.text('ALTER TABLE payment ADD COLUMN payment_type VARCHAR(50) NOT NULL DEFAULT \'請負\''))
+                        conn.commit()
+                    app.logger.info('payment_type カラムを追加しました')
+                
                 # budget_id カラムの確認と追加
                 if 'budget_id' not in columns:
                     app.logger.info('payment テーブルに budget_id カラムを追加します')
@@ -1084,6 +1092,7 @@ def create_app():
                 vendor_name=vendor_name,
                 amount=int(payment_amount),
                 is_contract=is_contract,
+                payment_type='請負' if is_contract else '請負外',
                 note=payment_note,
                 budget_id=budget_id
             )
