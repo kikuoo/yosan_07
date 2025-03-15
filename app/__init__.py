@@ -108,10 +108,13 @@ def create_app():
     if not database_url:
         # ローカル開発環境用のデフォルト設定
         database_url = 'postgresql://postgres:postgres@localhost:5432/yosan'
+        app.logger.warning('DATABASE_URL環境変数が設定されていません。デフォルト設定を使用します。')
     elif database_url.startswith('postgres://'):
         # RenderのPostgreSQLアドオン用の設定
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        app.logger.info('PostgreSQL接続URLを修正しました')
     
+    app.logger.info(f'データベース接続URL: {database_url}')
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
@@ -121,26 +124,22 @@ def create_app():
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
     # データベースの初期化
-    db.init_app(app)
-    migrate.init_app(app, db)
-    
-    # ログインマネージャーの初期化
-    login_manager.init_app(app)
-    login_manager.login_view = 'login'
-    
-    # ユーザーローダーの設定
-    from app.models import User
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
-    
-    with app.app_context():
-        try:
+    try:
+        db.init_app(app)
+        migrate.init_app(app, db)
+        
+        with app.app_context():
+            # テーブルの存在確認
+            inspector = inspect(db.engine)
+            existing_tables = inspector.get_table_names()
+            app.logger.info(f'既存のテーブル: {existing_tables}')
+            
             # データベースのテーブルを作成
             db.create_all()
             app.logger.info('データベーステーブルを作成しました')
             
             # 管理者ユーザーの作成
+            from app.models import User
             admin = User.query.filter_by(username='admin').first()
             if not admin:
                 admin = User(
@@ -153,10 +152,22 @@ def create_app():
                 db.session.commit()
                 app.logger.info('管理者ユーザーを作成しました')
             
-        except Exception as e:
-            app.logger.error(f'データベース初期化エラー: {str(e)}')
-            app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
+    except Exception as e:
+        app.logger.error(f'データベース初期化エラー: {str(e)}')
+        app.logger.error(f'エラーの詳細: {e.__class__.__name__}')
+        app.logger.error(f'データベース接続URL: {database_url}')
+        if hasattr(e, 'orig'):
+            app.logger.error(f'原因: {str(e.orig)}')
             
+    # ログインマネージャーの初期化
+    login_manager.init_app(app)
+    login_manager.login_view = 'login'
+    
+    # ユーザーローダーの設定
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+    
     # ルートの定義
     @app.route('/')
     def index():
