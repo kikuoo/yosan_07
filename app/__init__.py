@@ -1,21 +1,15 @@
 from flask import Flask, request, render_template, redirect, url_for, make_response, flash
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from flask_migrate import Migrate
+from flask_login import login_user, logout_user, login_required, current_user
 import os
 import logging
 from dotenv import load_dotenv
 from datetime import datetime
 from sqlalchemy import inspect
-from app.models import User  # Userモデルをインポート
+
+from app.extensions import db, migrate, login_manager
 
 # 環境変数の読み込み
 load_dotenv()
-
-# データベースの設定
-db = SQLAlchemy()
-migrate = Migrate()
-login_manager = LoginManager()
 
 # 工種の定義
 CONSTRUCTION_TYPES = {
@@ -133,11 +127,16 @@ def create_app():
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
+    # 拡張機能の初期化
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    
+    # モデルのインポート（循環インポートを避けるため、ここでインポート）
+    from app.models import User, Property, ConstructionBudget, Payment
+    
     # データベースの初期化
     try:
-        db.init_app(app)
-        migrate.init_app(app, db)
-        
         with app.app_context():
             # テーブルの存在確認
             inspector = inspect(db.engine)
@@ -170,16 +169,7 @@ def create_app():
         app.logger.error(f'データベース接続URL: {database_url}')
         if hasattr(e, 'orig'):
             app.logger.error(f'原因: {str(e.orig)}')
-        raise  # エラーを再度発生させて、問題を明確にする
-    
-    # ログインマネージャーの初期化
-    login_manager.init_app(app)
-    login_manager.login_view = 'login'
-    
-    # ユーザーローダーの設定
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
+        raise
     
     # ルートの定義
     @app.route('/')
@@ -294,7 +284,6 @@ def create_app():
         try:
             app.logger.info('予算ページへのアクセス')
             app.logger.info(f'ユーザーID: {current_user.id}')
-            from app.models import Property
             properties = Property.query.filter_by(user_id=current_user.id).all()
             
             # 物件リストのHTMLを生成
@@ -484,7 +473,6 @@ def create_app():
                 return redirect('/budgets')
             
             # 物件コードの重複チェック
-            from app.models import Property
             if Property.query.filter_by(code=code).first() is not None:
                 app.logger.error('この物件コードは既に使用されています')
                 return redirect('/budgets')
@@ -594,7 +582,6 @@ def create_app():
     @login_required
     def property_detail(property_id):
         try:
-            from app.models import Property, ConstructionBudget, Payment
             property = Property.query.get_or_404(property_id)
             
             # 権限チェック
@@ -768,7 +755,6 @@ def create_app():
     @login_required
     def edit_property(property_id):
         try:
-            from app.models import Property
             property = Property.query.get_or_404(property_id)
             
             # 権限チェック
@@ -806,7 +792,6 @@ def create_app():
     @login_required
     def delete_property(property_id):
         try:
-            from app.models import Property, ConstructionBudget
             property = Property.query.get_or_404(property_id)
             
             # 権限チェック
@@ -831,7 +816,6 @@ def create_app():
     @login_required
     def add_budget(property_id):
         try:
-            from app.models import Property, ConstructionBudget
             property = Property.query.get_or_404(property_id)
             
             # 権限チェック
@@ -866,7 +850,6 @@ def create_app():
     @login_required
     def edit_budget(budget_id):
         try:
-            from app.models import ConstructionBudget
             budget = ConstructionBudget.query.get_or_404(budget_id)
             
             # 権限チェック
@@ -897,7 +880,6 @@ def create_app():
     @login_required
     def delete_budget(budget_id):
         try:
-            from app.models import ConstructionBudget
             budget = ConstructionBudget.query.get_or_404(budget_id)
             property_id = budget.property_id
             
@@ -919,7 +901,6 @@ def create_app():
     @login_required
     def add_payment(budget_id):
         try:
-            from app.models import ConstructionBudget, Payment
             budget = ConstructionBudget.query.get_or_404(budget_id)
             
             # 権限チェック
