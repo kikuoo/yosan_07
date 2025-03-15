@@ -667,19 +667,92 @@ def create_app():
                 # 支払いリストのHTML生成
                 payments_html = ''
                 if payments:
-                    payments_html = '<div class="mt-3"><h6>支払い履歴</h6><table class="table table-sm"><thead><tr><th>年月</th><th>業者名</th><th>金額</th><th>区分</th><th>備考</th></tr></thead><tbody>'
-                    for payment in sorted(payments, key=lambda x: (x.year, x.month)):
-                        payment_type = "請負" if payment.is_contract else "請負外"
-                        payments_html += f'''
-                        <tr>
-                            <td>{payment.year}年{payment.month}月</td>
-                            <td>{payment.vendor_name}</td>
-                            <td>{payment.amount:,}円</td>
-                            <td>{payment_type}</td>
-                            <td>{payment.note or ''}</td>
-                        </tr>
+                    # 請負支払いのHTML
+                    contract_payments_html = ''
+                    if contract_payments:
+                        contract_payments_html = f'''
+                        <div class="col-md-6">
+                            <h6 class="mb-2">請負支払</h6>
+                            <div class="mb-2">
+                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}">
+                                    出来高支払い
+                                </button>
+                            </div>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>年月</th>
+                                        <th>業者名</th>
+                                        <th>金額</th>
+                                        <th>備考</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {" ".join([f"""
+                                    <tr>
+                                        <td>{payment.year}年{payment.month}月</td>
+                                        <td>{payment.vendor_name}</td>
+                                        <td>{payment.amount:,}円</td>
+                                        <td>{payment.note or ''}</td>
+                                    </tr>
+                                    """ for payment in sorted(contract_payments, key=lambda x: (x.year, x.month))])}
+                                    <tr class="table-info">
+                                        <td colspan="2" class="text-end">請負支払合計</td>
+                                        <td>{contract_total:,}円</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="table-warning">
+                                        <td colspan="2" class="text-end">請負残額</td>
+                                        <td>{budget.amount - contract_total:,}円</td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                         '''
-                    payments_html += '</tbody></table></div>'
+
+                    # 請負外支払いのHTML
+                    non_contract_payments_html = ''
+                    if non_contract_payments:
+                        non_contract_payments_html = f'''
+                        <div class="col-md-6">
+                            <h6 class="mb-2">請負外支払</h6>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>年月</th>
+                                        <th>業者名</th>
+                                        <th>金額</th>
+                                        <th>備考</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {" ".join([f"""
+                                    <tr>
+                                        <td>{payment.year}年{payment.month}月</td>
+                                        <td>{payment.vendor_name}</td>
+                                        <td>{payment.amount:,}円</td>
+                                        <td>{payment.note or ''}</td>
+                                    </tr>
+                                    """ for payment in sorted(non_contract_payments, key=lambda x: (x.year, x.month))])}
+                                    <tr class="table-info">
+                                        <td colspan="2" class="text-end">請負外支払合計</td>
+                                        <td>{non_contract_total:,}円</td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        '''
+
+                    payments_html = f'''
+                    <div class="mt-3">
+                        <div class="row">
+                            {contract_payments_html}
+                            {non_contract_payments_html}
+                        </div>
+                    </div>
+                    '''
 
                 budgets_html += f'''
                 <tr>
