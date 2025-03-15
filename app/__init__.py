@@ -646,6 +646,117 @@ def create_app():
                             </button>
                         </div>
                         {payments_html}
+
+                        <!-- 支払い入力モーダル -->
+                        <div class="modal fade" id="paymentModal{budget.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">支払い入力</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form action="/budget/{budget.id}/payment/add" method="POST">
+                                            <div class="row mb-3">
+                                                <div class="col">
+                                                    <label for="payment_year" class="form-label">年</label>
+                                                    <input type="number" class="form-control" id="payment_year" name="payment_year" required min="2000" max="2100">
+                                                </div>
+                                                <div class="col">
+                                                    <label for="payment_month" class="form-label">月</label>
+                                                    <input type="number" class="form-control" id="payment_month" name="payment_month" required min="1" max="12">
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="vendor_name" class="form-label">業者名</label>
+                                                <input type="text" class="form-control" id="vendor_name" name="vendor_name" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="payment_amount" class="form-label">金額</label>
+                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_true{budget.id}" value="true" checked>
+                                                    <label class="form-check-label" for="is_contract_true{budget.id}">
+                                                        請負
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_false{budget.id}" value="false">
+                                                    <label class="form-check-label" for="is_contract_false{budget.id}">
+                                                        請負外
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="payment_note" class="form-label">備考</label>
+                                                <textarea class="form-control" id="payment_note" name="payment_note" rows="3"></textarea>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">登録</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 工種編集モーダル -->
+                        <div class="modal fade" id="editBudgetModal{budget.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">工種編集</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form action="/budget/{budget.id}/edit" method="POST">
+                                            <div class="mb-3">
+                                                <label for="code" class="form-label">工種コード</label>
+                                                <select class="form-select" id="code" name="code" onchange="updateConstructionName(this)" required>
+                                                    <option value="">工種を選択してください</option>
+''' + '\n'.join([f'                                                    <option value="{code}" data-name="{name}" {"selected" if code == budget.code else ""}>{code} - {name}</option>' for code, name in CONSTRUCTION_TYPES.items()]) + f'''
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="name" class="form-label">工種名</label>
+                                                <input type="text" class="form-control" id="name" name="name" value="{budget.name}" readonly required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="amount" class="form-label">金額</label>
+                                                <input type="number" class="form-control" id="amount" name="amount" value="{budget.amount}" required>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">更新</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 工種削除確認モーダル -->
+                        <div class="modal fade" id="deleteBudgetModal{budget.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">工種削除の確認</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>工種「{budget.name}」を削除してもよろしいですか？</p>
+                                        <p class="text-danger">この操作は取り消せません。</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <form action="/budget/{budget.id}/delete" method="POST">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                            <button type="submit" class="btn btn-danger">削除</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </td>
                 </tr>
                 '''
@@ -738,7 +849,7 @@ def create_app():
                 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
                 <script>
                     function updateConstructionName(selectElement) {
-                        const nameInput = document.getElementById('name');
+                        const nameInput = selectElement.closest('.modal-body').querySelector('[name="name"]');
                         const selectedOption = selectElement.options[selectElement.selectedIndex];
                         nameInput.value = selectedOption.value ? selectedOption.dataset.name : '';
                     }
