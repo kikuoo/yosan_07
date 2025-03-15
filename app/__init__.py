@@ -692,8 +692,11 @@ def create_app():
                     month_options = [f'<option value="{month}" {"selected" if month == current_month else ""}>{month}月</option>' for month in range(1, 13)]
                     
                     for vendor_name, vendor_payments in vendor_groups.items():
-                        # 業者ごとの支払い合計
+                        # 業者ごとの支払い合計と残額を計算
                         vendor_total = sum(p.amount for p in vendor_payments)
+                        vendor_remaining = budget.amount - vendor_total
+                        remaining_style = 'color: red;' if vendor_remaining < 0 else ''
+                        warning_message = '<div class="text-danger">※請負額を超過しています</div>' if vendor_remaining < 0 else ''
                         
                         # 支払い履歴の行を生成
                         payment_rows = []
@@ -715,9 +718,9 @@ def create_app():
                                     <tbody>
                                         {''.join(payment_rows)}
                                         <tr class="table-info">
-                                            <td class="text-end">支払合計</td>
-                                            <td>{vendor_total:,}円</td>
-                                            <td></td>
+                                            <td class="text-end">支払残額</td>
+                                            <td style="{remaining_style}">{vendor_remaining:,}円</td>
+                                            <td>{warning_message}</td>
                                         </tr>
                                     </tbody>
                                 </table>
