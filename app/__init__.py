@@ -106,15 +106,20 @@ def create_app():
     # データベース設定
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
-        # ローカル開発環境用のデフォルト設定
+        app.logger.error('DATABASE_URL環境変数が設定されていません')
         database_url = 'postgresql://postgres:postgres@localhost:5432/yosan'
-        app.logger.warning('DATABASE_URL環境変数が設定されていません。デフォルト設定を使用します。')
     elif database_url.startswith('postgres://'):
         # RenderのPostgreSQLアドオン用の設定
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
         app.logger.info('PostgreSQL接続URLを修正しました')
     
     app.logger.info(f'データベース接続URL: {database_url}')
+    
+    # SSL設定の追加（Render環境用）
+    if os.environ.get('PRODUCTION', 'false').lower() == 'true':
+        app.logger.info('本番環境用のSSL設定を適用します')
+        database_url += '?sslmode=require'
+    
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
