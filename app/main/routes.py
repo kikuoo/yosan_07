@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort, current_app, make_response
 from flask_login import login_required, current_user
 from app import db
 from app.models import Property, ConstructionBudget, CONSTRUCTION_TYPES, Payment
@@ -6,20 +6,23 @@ from datetime import datetime
 
 bp = Blueprint('main', __name__)
 
-@bp.route('/', defaults={'path': ''})
-@bp.route('/<path:path>')
-def index(path):
+@bp.route('/')
+def index():
     try:
-        current_app.logger.info(f'アクセスパス: {path}')
+        current_app.logger.info('ルートパスへのアクセス')
         current_app.logger.info(f'リクエストメソッド: {request.method}')
+        current_app.logger.info(f'リクエストURL: {request.url}')
         current_app.logger.info(f'リクエストヘッダー: {dict(request.headers)}')
         
         if request.method == 'HEAD':
-            return '', 200
+            current_app.logger.info('HEADリクエストを処理します')
+            response = make_response('')
+            response.headers['Content-Type'] = 'text/html; charset=utf-8'
+            return response, 200
             
         html = '''
         <!DOCTYPE html>
-        <html>
+        <html lang="ja">
         <head>
             <title>予算管理システム</title>
             <meta charset="utf-8">
@@ -42,8 +45,10 @@ def index(path):
         </body>
         </html>
         '''
-        current_app.logger.info('HTMLを返します')
-        return html
+        current_app.logger.info('HTMLレスポンスを返します')
+        response = make_response(html)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        return response
         
     except Exception as e:
         current_app.logger.error(f'ルートパス処理エラー: {str(e)}')
