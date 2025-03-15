@@ -8,8 +8,7 @@ bp = Blueprint('main', __name__)
 
 @bp.route('/')
 def index():
-    login_url = url_for('auth.login', _external=True)
-    return f'''
+    return '''
     <!DOCTYPE html>
     <html lang="ja">
     <head>
@@ -23,7 +22,7 @@ def index():
                 <div class="col-md-6 text-center">
                     <h1>予算管理システム</h1>
                     <div class="mt-4">
-                        <a href="{login_url}" class="btn btn-primary btn-lg">ログイン</a>
+                        <a href="/auth/login" class="btn btn-primary btn-lg">ログイン</a>
                     </div>
                 </div>
             </div>
