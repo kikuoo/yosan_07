@@ -676,9 +676,7 @@ def create_app():
                     for payment in contract_payments:
                         if payment.vendor_name not in vendor_groups:
                             vendor_groups[payment.vendor_name] = []
-                        # 出来高支払いのみを表示
-                        if payment.note == '出来高支払':
-                            vendor_groups[payment.vendor_name].append(payment)
+                        vendor_groups[payment.vendor_name].append(payment)
                     
                     # 業者ごとのHTML生成
                     vendor_cards = []
@@ -691,13 +689,12 @@ def create_app():
                     
                     for vendor_name, vendor_payments in vendor_groups.items():
                         # 業者ごとの支払い合計と残額を計算
-                        vendor_total = sum(p.amount for p in contract_payments if p.vendor_name == vendor_name)
-                        vendor_progress_total = sum(p.amount for p in vendor_payments)  # 出来高支払いの合計
-                        vendor_remaining = vendor_total - vendor_progress_total  # 請負額から出来高支払い合計を引いた額
+                        vendor_total = sum(p.amount for p in vendor_payments)
+                        vendor_remaining = budget.amount - vendor_total  # 予算額から支払い合計を引いた額
                         remaining_style = 'color: red;' if vendor_remaining < 0 else ''
-                        warning_message = '<div class="text-danger">※請負額を超過しています</div>' if vendor_remaining < 0 else ''
+                        warning_message = '<div class="text-danger">※予算額を超過しています</div>' if vendor_remaining < 0 else ''
                         
-                        # 支払い履歴の行を生成（出来高支払いのみ）
+                        # 支払い履歴の行を生成
                         payment_rows = []
                         for p in sorted(vendor_payments, key=lambda x: (x.year, x.month)):
                             payment_rows.append(
@@ -714,25 +711,8 @@ def create_app():
                                 </tr>'''
                             )
 
-                        # 請負支払いの行を生成
-                        contract_payment_rows = []
-                        for p in sorted([p for p in contract_payments if p.note != '出来高支払'], key=lambda x: (x.year, x.month)):
-                            contract_payment_rows.append(
-                                f'''<tr>
-                                    <td>{p.year}年{p.month}月</td>
-                                    <td>{p.amount:,}円</td>
-                                    <td>{p.note or ""}</td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editPaymentModal{p.id}">編集</button>
-                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePaymentModal{p.id}">削除</button>
-                                        </div>
-                                    </td>
-                                </tr>'''
-                            )
-
                             # 支払い編集モーダル
-                            contract_payment_rows.append(f'''
+                            payment_rows.append(f'''
                             <div class="modal fade" id="editPaymentModal{p.id}" tabindex="-1">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
@@ -804,16 +784,15 @@ def create_app():
                                     <span class="fw-bold">{vendor_name}</span>
                                     <span class="ms-3 text-muted">請負額: {vendor_total:,}円</span>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}_{vendor_name.replace(" ", "_")}">出来高支払い</button>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editVendorModal{budget.id}_{vendor_name.replace(" ", "_")}">編集</button>
+                                    <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteVendorModal{budget.id}_{vendor_name.replace(" ", "_")}">削除</button>
+                                </div>
                             </div>
                             <div class="card-body p-0">
                                 <table class="table table-sm mb-0">
                                     <thead><tr><th>年月</th><th>金額</th><th>備考</th><th>操作</th></tr></thead>
                                     <tbody>
-                                        {''.join(contract_payment_rows)}
-                                        <tr class="table-secondary">
-                                            <td colspan="4" class="text-center">出来高支払い</td>
-                                        </tr>
                                         {''.join(payment_rows)}
                                         <tr class="table-info">
                                             <td class="text-end">支払残額</td>
@@ -824,43 +803,44 @@ def create_app():
                                 </table>
                             </div>
                         </div>
-                        <div class="modal fade" id="progressPaymentModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
+                        <div class="modal fade" id="editVendorModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
                             <div class="modal-dialog">
                                 <div class="modal-content">
                                     <div class="modal-header">
-                                        <h5 class="modal-title">{vendor_name} - 出来高支払い入力</h5>
+                                        <h5 class="modal-title">業者情報編集</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                     </div>
                                     <div class="modal-body">
-                                        <form action="/budget/{budget.id}/payment/add" method="POST">
-                                            <div class="row mb-3">
-                                                <div class="col">
-                                                    <label for="payment_year" class="form-label">年</label>
-                                                    <select class="form-select" id="payment_year" name="payment_year" required>
-                                                        {''.join(year_options)}
-                                                    </select>
-                                                </div>
-                                                <div class="col">
-                                                    <label for="payment_month" class="form-label">月</label>
-                                                    <select class="form-select" id="payment_month" name="payment_month" required>
-                                                        {''.join(month_options)}
-                                                    </select>
-                                                </div>
-                                            </div>
+                                        <form action="/budget/{budget.id}/vendor/edit" method="POST">
+                                            <input type="hidden" name="old_vendor_name" value="{vendor_name}">
                                             <div class="mb-3">
-                                                <label for="payment_amount" class="form-label">支払い金額</label>
-                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
-                                                <div class="form-text">
-                                                    <div>業者支払合計: {vendor_total:,}円</div>
-                                                    <div>工種請負残額: {contract_remaining:,}円</div>
-                                                </div>
+                                                <label for="vendor_name" class="form-label">業者名</label>
+                                                <input type="text" class="form-control" id="vendor_name" name="vendor_name" value="{vendor_name}" required>
                                             </div>
-                                            <input type="hidden" name="vendor_name" value="{vendor_name}">
-                                            <input type="hidden" name="is_contract" value="true">
-                                            <input type="hidden" name="payment_note" value="出来高支払">
                                             <div class="text-end">
-                                                <button type="submit" class="btn btn-primary">登録</button>
+                                                <button type="submit" class="btn btn-primary">更新</button>
                                             </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal fade" id="deleteVendorModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">業者削除の確認</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>業者「{vendor_name}」の支払い情報を削除してもよろしいですか？</p>
+                                        <p class="text-danger">この操作は取り消せません。</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <form action="/budget/{budget.id}/vendor/delete" method="POST">
+                                            <input type="hidden" name="vendor_name" value="{vendor_name}">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                            <button type="submit" class="btn btn-danger">削除</button>
                                         </form>
                                     </div>
                                 </div>
@@ -1520,6 +1500,70 @@ def create_app():
             db.session.rollback()
             app.logger.error(f'支払い削除エラー: {str(e)}')
             return redirect(f'/property/{property_id}')
+
+    @app.route('/budget/<int:budget_id>/vendor/edit', methods=['POST'])
+    @login_required
+    def edit_vendor(budget_id):
+        try:
+            budget = ConstructionBudget.query.get_or_404(budget_id)
+            
+            # 権限チェック
+            if budget.property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            old_vendor_name = request.form.get('old_vendor_name')
+            new_vendor_name = request.form.get('vendor_name')
+            
+            if not all([old_vendor_name, new_vendor_name]):
+                return redirect(f'/property/{budget.property_id}')
+            
+            # 業者名を更新
+            payments = Payment.query.filter_by(
+                construction_budget_id=budget_id,
+                vendor_name=old_vendor_name
+            ).all()
+            
+            for payment in payments:
+                payment.vendor_name = new_vendor_name
+            
+            db.session.commit()
+            app.logger.info(f'業者名を更新しました: {old_vendor_name} → {new_vendor_name}')
+            
+            return redirect(f'/property/{budget.property_id}#budget_{budget_id}')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'業者名更新エラー: {str(e)}')
+            return redirect(f'/property/{budget.property_id}')
+
+    @app.route('/budget/<int:budget_id>/vendor/delete', methods=['POST'])
+    @login_required
+    def delete_vendor(budget_id):
+        try:
+            budget = ConstructionBudget.query.get_or_404(budget_id)
+            
+            # 権限チェック
+            if budget.property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            vendor_name = request.form.get('vendor_name')
+            
+            if not vendor_name:
+                return redirect(f'/property/{budget.property_id}')
+            
+            # 業者の支払い情報を削除
+            Payment.query.filter_by(
+                construction_budget_id=budget_id,
+                vendor_name=vendor_name
+            ).delete()
+            
+            db.session.commit()
+            app.logger.info(f'業者の支払い情報を削除しました: {vendor_name}')
+            
+            return redirect(f'/property/{budget.property_id}#budget_{budget_id}')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'業者削除エラー: {str(e)}')
+            return redirect(f'/property/{budget.property_id}')
 
     # エラーハンドラ
     @app.errorhandler(404)
