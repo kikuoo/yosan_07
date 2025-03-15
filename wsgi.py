@@ -1,4 +1,4 @@
-from app import create_app, db
+from app import app, db
 from app.models import User, Property, ConstructionBudget
 import os
 from dotenv import load_dotenv
@@ -12,7 +12,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # アプリケーションの作成
-app = create_app()
 logger.info('アプリケーションを作成しました')
 
 def init_database():
