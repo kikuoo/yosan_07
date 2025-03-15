@@ -51,11 +51,14 @@ class Payment(db.Model):
     vendor_name = db.Column(db.String(200), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
     is_contract = db.Column(db.Boolean, nullable=False, default=True)  # True: 請負, False: 請負外
-    payment_type = db.Column(db.String(50), nullable=False, default='請負')  # '請負' または '請負外'
     note = db.Column(db.Text)
     budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def payment_type(self):
+        return '請負' if self.is_contract else '請負外'
 
 # 工種コードと工種名のマッピング
 CONSTRUCTION_TYPES = {
