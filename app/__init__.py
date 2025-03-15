@@ -5,6 +5,8 @@ from flask_migrate import Migrate
 import os
 import logging
 from dotenv import load_dotenv
+from datetime import datetime
+from sqlalchemy import inspect
 
 # 環境変数の読み込み
 load_dotenv()
@@ -56,12 +58,19 @@ def create_app():
         return User.query.get(int(user_id))
     
     with app.app_context():
-        # データベースのテーブルを作成
-        try:
-            db.create_all()
-            app.logger.info('データベーステーブルを作成しました')
-        except Exception as e:
-            app.logger.error(f'データベーステーブルの作成中にエラーが発生しました: {str(e)}')
+        # データベースのテーブルが存在するか確認
+        inspector = inspect(db.engine)
+        existing_tables = inspector.get_table_names()
+        
+        if not existing_tables:
+            # テーブルが存在しない場合のみ作成
+            try:
+                db.create_all()
+                app.logger.info('データベーステーブルを作成しました')
+            except Exception as e:
+                app.logger.error(f'データベーステーブルの作成中にエラーが発生しました: {str(e)}')
+        else:
+            app.logger.info('データベーステーブルは既に存在します')
 
     # ルートの定義
     @app.route('/')
@@ -500,13 +509,36 @@ def create_app():
                                     </div>
                                     <div class="modal-body">
                                         <form action="/budget/{budget.id}/payment/add" method="POST">
+                                            <div class="row mb-3">
+                                                <div class="col-6">
+                                                    <label for="payment_year" class="form-label">支払年</label>
+                                                    <input type="number" class="form-control" id="payment_year" name="payment_year" min="2000" max="2100" value="{datetime.now().year}" required>
+                                                </div>
+                                                <div class="col-6">
+                                                    <label for="payment_month" class="form-label">支払月</label>
+                                                    <select class="form-select" id="payment_month" name="payment_month" required>
+                                                        {' '.join([f'<option value="{i}"{" selected" if i == datetime.now().month else ""}>{i}月</option>' for i in range(1, 13)])}
+                                                    </select>
+                                                </div>
+                                            </div>
                                             <div class="mb-3">
-                                                <label for="payment_date" class="form-label">支払日</label>
-                                                <input type="date" class="form-control" id="payment_date" name="payment_date" required>
+                                                <label for="vendor_name" class="form-label">支払業者名</label>
+                                                <input type="text" class="form-control" id="vendor_name" name="vendor_name" required>
                                             </div>
                                             <div class="mb-3">
                                                 <label for="payment_amount" class="form-label">支払金額</label>
                                                 <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">支払区分</label>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_true" value="true" checked>
+                                                    <label class="form-check-label" for="is_contract_true">請負</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="is_contract" id="is_contract_false" value="false">
+                                                    <label class="form-check-label" for="is_contract_false">請負外</label>
+                                                </div>
                                             </div>
                                             <div class="mb-3">
                                                 <label for="payment_note" class="form-label">備考</label>
@@ -533,11 +565,13 @@ def create_app():
                                         <form action="/budget/{budget.id}/edit" method="POST">
                                             <div class="mb-3">
                                                 <label for="code" class="form-label">工種コード</label>
-                                                <input type="text" class="form-control" id="code" name="code" value="{budget.code}" required>
+                                                <select class="form-select" id="code" name="code" required>
+                                                    {' '.join([f'<option value="{code}"{" selected" if code == budget.code else ""}>{code} - {name}</option>' for code, name in CONSTRUCTION_TYPES.items()])}
+                                                </select>
                                             </div>
                                             <div class="mb-3">
                                                 <label for="name" class="form-label">工種名</label>
-                                                <input type="text" class="form-control" id="name" name="name" value="{budget.name}" required>
+                                                <input type="text" class="form-control" id="name" name="name" value="{budget.name}" readonly>
                                             </div>
                                             <div class="mb-3">
                                                 <label for="amount" class="form-label">金額</label>
@@ -829,23 +863,29 @@ def create_app():
             if budget.property.user_id != current_user.id:
                 return redirect('/budgets')
             
-            payment_date = request.form.get('payment_date')
+            payment_year = request.form.get('payment_year')
+            payment_month = request.form.get('payment_month')
+            vendor_name = request.form.get('vendor_name')
             payment_amount = request.form.get('payment_amount')
+            is_contract = request.form.get('is_contract') == 'true'
             payment_note = request.form.get('payment_note')
             
-            if not all([payment_date, payment_amount]):
+            if not all([payment_year, payment_month, vendor_name, payment_amount]):
                 return redirect(f'/property/{budget.property_id}')
             
             payment = Payment(
-                date=payment_date,
+                year=int(payment_year),
+                month=int(payment_month),
+                vendor_name=vendor_name,
                 amount=int(payment_amount),
+                is_contract=is_contract,
                 note=payment_note,
                 budget_id=budget_id
             )
             
             db.session.add(payment)
             db.session.commit()
-            app.logger.info(f'支払いを登録しました: {payment_date} - {payment_amount}円')
+            app.logger.info(f'支払いを登録しました: {payment_year}年{payment_month}月 - {payment_amount}円')
             
             return redirect(f'/property/{budget.property_id}')
         except Exception as e:

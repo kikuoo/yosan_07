@@ -46,8 +46,11 @@ class ConstructionBudget(db.Model):
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.Date, nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    month = db.Column(db.Integer, nullable=False)
+    vendor_name = db.Column(db.String(200), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
+    is_contract = db.Column(db.Boolean, nullable=False, default=True)  # True: 請負, False: 請負外
     note = db.Column(db.Text)
     budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
