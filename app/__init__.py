@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, request, render_template, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -60,15 +60,60 @@ def create_app():
     except Exception as e:
         app.logger.error(f'ブループリントの登録中にエラーが発生しました: {str(e)}')
     
-    # シンプルなエラーハンドラ
+    # エラーハンドラ
     @app.errorhandler(404)
     def not_found_error(error):
-        return redirect('/')
+        if request.method == 'HEAD':
+            return '', 200
+            
+        return '''
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <title>予算管理システム</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6 text-center">
+                        <h1>予算管理システム</h1>
+                        <div class="mt-4">
+                            <a href="/auth/login" class="btn btn-primary btn-lg">ログイン</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        ''', 200
     
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
-        return redirect('/')
+        return '''
+        <!DOCTYPE html>
+        <html lang="ja">
+        <head>
+            <meta charset="utf-8">
+            <title>エラー - 予算管理システム</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        </head>
+        <body>
+            <div class="container mt-5">
+                <div class="row justify-content-center">
+                    <div class="col-md-6 text-center">
+                        <h1>エラーが発生しました</h1>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">トップページに戻る</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        ''', 500
     
     return app
 
