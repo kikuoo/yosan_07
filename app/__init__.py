@@ -714,8 +714,25 @@ def create_app():
                                 </tr>'''
                             )
 
+                        # 請負支払いの行を生成
+                        contract_payment_rows = []
+                        for p in sorted([p for p in contract_payments if p.note != '出来高支払'], key=lambda x: (x.year, x.month)):
+                            contract_payment_rows.append(
+                                f'''<tr>
+                                    <td>{p.year}年{p.month}月</td>
+                                    <td>{p.amount:,}円</td>
+                                    <td>{p.note or ""}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editPaymentModal{p.id}">編集</button>
+                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePaymentModal{p.id}">削除</button>
+                                        </div>
+                                    </td>
+                                </tr>'''
+                            )
+
                             # 支払い編集モーダル
-                            payment_rows.append(f'''
+                            contract_payment_rows.append(f'''
                             <div class="modal fade" id="editPaymentModal{p.id}" tabindex="-1">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
@@ -793,6 +810,10 @@ def create_app():
                                 <table class="table table-sm mb-0">
                                     <thead><tr><th>年月</th><th>金額</th><th>備考</th><th>操作</th></tr></thead>
                                     <tbody>
+                                        {''.join(contract_payment_rows)}
+                                        <tr class="table-secondary">
+                                            <td colspan="4" class="text-center">出来高支払い</td>
+                                        </tr>
                                         {''.join(payment_rows)}
                                         <tr class="table-info">
                                             <td class="text-end">支払残額</td>
