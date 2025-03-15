@@ -1,6 +1,7 @@
 from app import db, login_manager
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 @login_manager.user_loader
 def load_user(id):
@@ -32,26 +33,25 @@ class Property(db.Model):
 
 class ConstructionBudget(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(20), nullable=False)  # 工種コード
-    name = db.Column(db.String(200), nullable=False)  # 工種名
-    amount = db.Column(db.Integer, nullable=False)  # 予算額
+    code = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
     property_id = db.Column(db.Integer, db.ForeignKey('property.id'), nullable=False)
-    property = db.relationship('Property', backref=db.backref('construction_budgets', lazy=True))
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # リレーションシップ
+    property = db.relationship('Property', backref=db.backref('budgets', lazy=True))
+    payments = db.relationship('Payment', backref='budget', lazy=True, cascade='all, delete-orphan')
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    year = db.Column(db.Integer, nullable=False)  # 支払年
-    month = db.Column(db.Integer, nullable=False)  # 支払月
-    vendor_name = db.Column(db.String(100), nullable=False)  # 支払業者名
-    payment_type = db.Column(db.String(20), nullable=False)  # 'contract' or 'non_contract'
-    amount = db.Column(db.Integer, nullable=False)  # 支払金額
-    remarks = db.Column(db.Text, nullable=True)  # 備考欄を追加
-    construction_budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
-    construction_budget = db.relationship('ConstructionBudget', backref=db.backref('payments', lazy=True))
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    date = db.Column(db.Date, nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
+    note = db.Column(db.Text)
+    budget_id = db.Column(db.Integer, db.ForeignKey('construction_budget.id'), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # 工種コードと工種名のマッピング
 CONSTRUCTION_TYPES = {

@@ -4,6 +4,10 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_migrate import Migrate
 import os
 import logging
+from dotenv import load_dotenv
+
+# 環境変数の読み込み
+load_dotenv()
 
 # データベースの設定
 db = SQLAlchemy()
@@ -17,15 +21,25 @@ def create_app():
     app.logger.setLevel(logging.INFO)
     
     # 基本設定
-    app.config['SECRET_KEY'] = 'dev'
-    # データベースファイルのパスを絶対パスで指定
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'yosan.db')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev')
+    
+    # データベース設定
+    if os.environ.get('DATABASE_URL'):
+        # RenderのPostgreSQLのURLを修正（postgres://からpostgresql://に変更）
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    else:
+        # 開発環境用のSQLite設定
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'yosan.db')
+    
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # セッション設定を一時的に無効化
-    app.config['SESSION_COOKIE_SECURE'] = False
-    app.config['SESSION_COOKIE_HTTPONLY'] = False
-    app.config['SESSION_COOKIE_SAMESITE'] = None
+    # セッション設定
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('PRODUCTION', 'false').lower() == 'true'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
     # データベースの初期化
     db.init_app(app)
@@ -465,12 +479,46 @@ def create_app():
                     <td>{budget.amount:,}円</td>
                     <td>
                         <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#paymentModal{budget.id}">
+                                支払い入力
+                            </button>
                             <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editBudgetModal{budget.id}">
                                 編集
                             </button>
                             <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal{budget.id}">
                                 削除
                             </button>
+                        </div>
+
+                        <!-- 支払い入力モーダル -->
+                        <div class="modal fade" id="paymentModal{budget.id}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">支払い入力 - {budget.name}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form action="/budget/{budget.id}/payment/add" method="POST">
+                                            <div class="mb-3">
+                                                <label for="payment_date" class="form-label">支払日</label>
+                                                <input type="date" class="form-control" id="payment_date" name="payment_date" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="payment_amount" class="form-label">支払金額</label>
+                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="payment_note" class="form-label">備考</label>
+                                                <textarea class="form-control" id="payment_note" name="payment_note" rows="3"></textarea>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-primary">登録</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- 工種編集モーダル -->
@@ -769,6 +817,41 @@ def create_app():
             db.session.rollback()
             app.logger.error(f'工種削除エラー: {str(e)}')
             return redirect(f'/property/{property_id}')
+
+    @app.route('/budget/<int:budget_id>/payment/add', methods=['POST'])
+    @login_required
+    def add_payment(budget_id):
+        try:
+            from app.models import ConstructionBudget, Payment
+            budget = ConstructionBudget.query.get_or_404(budget_id)
+            
+            # 権限チェック
+            if budget.property.user_id != current_user.id:
+                return redirect('/budgets')
+            
+            payment_date = request.form.get('payment_date')
+            payment_amount = request.form.get('payment_amount')
+            payment_note = request.form.get('payment_note')
+            
+            if not all([payment_date, payment_amount]):
+                return redirect(f'/property/{budget.property_id}')
+            
+            payment = Payment(
+                date=payment_date,
+                amount=int(payment_amount),
+                note=payment_note,
+                budget_id=budget_id
+            )
+            
+            db.session.add(payment)
+            db.session.commit()
+            app.logger.info(f'支払いを登録しました: {payment_date} - {payment_amount}円')
+            
+            return redirect(f'/property/{budget.property_id}')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'支払い登録エラー: {str(e)}')
+            return redirect(f'/property/{budget.property_id}')
 
     # エラーハンドラ
     @app.errorhandler(404)
