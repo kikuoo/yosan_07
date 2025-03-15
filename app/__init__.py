@@ -657,20 +657,24 @@ def create_app():
                 
                 # 支払い情報の取得と集計
                 payments = Payment.query.filter_by(construction_budget_id=budget.id).all()
-                contract_payments = [p for p in payments if p.is_contract]
+                contract_payments = [p for p in payments if p.is_contract and p.note != "出来高支払"]
+                progress_payments = [p for p in payments if p.is_contract and p.note == "出来高支払"]
                 non_contract_payments = [p for p in payments if not p.is_contract]
                 
                 # 請負支払いの合計（出来高支払いを含む）
                 contract_total = sum(p.amount for p in contract_payments)
+                # 出来高支払いの合計
+                progress_total = sum(p.amount for p in progress_payments)
                 # 請負外支払いの合計
                 non_contract_total = sum(p.amount for p in non_contract_payments)
                 # 総支払額
-                total_paid = contract_total + non_contract_total
-                # 請負残額（予算額から請負支払い合計を引いた額）
-                contract_remaining = budget.amount - contract_total
+                total_paid = contract_total + progress_total + non_contract_total
+                # 請負残額（予算額から出来高支払い合計を引いた額）
+                contract_remaining = budget.amount - progress_total
 
                 # HTML変数の初期化
                 contract_payments_html = ''
+                progress_payments_html = ''
                 non_contract_payments_html = ''
 
                 # 年月の選択肢を生成（条件分岐の前に移動）
@@ -694,9 +698,9 @@ def create_app():
                     for vendor_name, vendor_payments in vendor_groups.items():
                         # 業者ごとの支払い合計と残額を計算
                         vendor_total = sum(p.amount for p in vendor_payments)
-                        vendor_remaining = budget.amount - vendor_total  # 予算額から支払い合計を引いた額
+                        vendor_remaining = vendor_total - progress_total  # 請負額から出来高支払い合計を引いた額
                         remaining_style = 'color: red;' if vendor_remaining < 0 else ''
-                        warning_message = '<div class="text-danger">※予算額を超過しています</div>' if vendor_remaining < 0 else ''
+                        warning_message = '<div class="text-danger">※請負額を超過しています</div>' if vendor_remaining < 0 else ''
                         
                         # 支払い履歴の行を生成
                         payment_rows = []
@@ -807,96 +811,6 @@ def create_app():
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
-                        <div class="modal fade" id="progressPaymentModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">{vendor_name} - 出来高払い入力</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form action="/budget/{budget.id}/payment/add" method="POST">
-                                            <div class="row mb-3">
-                                                <div class="col">
-                                                    <label for="payment_year" class="form-label">年</label>
-                                                    <select class="form-select" id="payment_year" name="payment_year" required>
-                                                        {''.join(year_options)}
-                                                    </select>
-                                                </div>
-                                                <div class="col">
-                                                    <label for="payment_month" class="form-label">月</label>
-                                                    <select class="form-select" id="payment_month" name="payment_month" required>
-                                                        {''.join(month_options)}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="payment_amount" class="form-label">支払い金額</label>
-                                                <input type="number" class="form-control" id="payment_amount" name="payment_amount" required>
-                                                <div class="form-text">
-                                                    <div>業者支払合計: {vendor_total:,}円</div>
-                                                    <div>工種請負残額: {contract_remaining:,}円</div>
-                                                </div>
-                                            </div>
-                                            <input type="hidden" name="vendor_name" value="{vendor_name}">
-                                            <input type="hidden" name="is_contract" value="true">
-                                            <input type="hidden" name="payment_note" value="出来高支払">
-                                            <div class="text-end">
-                                                <button type="submit" class="btn btn-primary">登録</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal fade" id="editVendorModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">業者情報編集</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form action="/budget/{budget.id}/vendor/edit" method="POST">
-                                            <input type="hidden" name="old_vendor_name" value="{vendor_name}">
-                                            <div class="mb-3">
-                                                <label for="vendor_name" class="form-label">業者名</label>
-                                                <input type="text" class="form-control" id="vendor_name" name="vendor_name" value="{vendor_name}" required>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="contract_amount" class="form-label">請負額</label>
-                                                <input type="number" class="form-control" id="contract_amount" name="contract_amount" value="{vendor_total}" required>
-                                                <div class="form-text">現在の支払い合計: {vendor_total:,}円</div>
-                                            </div>
-                                            <div class="text-end">
-                                                <button type="submit" class="btn btn-primary">更新</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal fade" id="deleteVendorModal{budget.id}_{vendor_name.replace(" ", "_")}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">業者削除の確認</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p>業者「{vendor_name}」の支払い情報を削除してもよろしいですか？</p>
-                                        <p class="text-danger">この操作は取り消せません。</p>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <form action="/budget/{budget.id}/vendor/delete" method="POST">
-                                            <input type="hidden" name="vendor_name" value="{vendor_name}">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                                            <button type="submit" class="btn btn-danger">削除</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
                         </div>'''
                         vendor_cards.append(vendor_card)
                     
@@ -916,18 +830,18 @@ def create_app():
                         </div>
                     </div>'''
 
-                # 請負外支払いの処理
-                if non_contract_payments:
+                # 出来高支払いの処理
+                if progress_payments:
                     # 業者ごとにグループ化
-                    non_contract_vendor_groups = {}
-                    for payment in non_contract_payments:
-                        if payment.vendor_name not in non_contract_vendor_groups:
-                            non_contract_vendor_groups[payment.vendor_name] = []
-                        non_contract_vendor_groups[payment.vendor_name].append(payment)
+                    progress_vendor_groups = {}
+                    for payment in progress_payments:
+                        if payment.vendor_name not in progress_vendor_groups:
+                            progress_vendor_groups[payment.vendor_name] = []
+                        progress_vendor_groups[payment.vendor_name].append(payment)
                     
                     # 業者ごとのHTML生成
-                    non_contract_vendor_cards = []
-                    for vendor_name, vendor_payments in non_contract_vendor_groups.items():
+                    progress_vendor_cards = []
+                    for vendor_name, vendor_payments in progress_vendor_groups.items():
                         # 支払い履歴の行を生成
                         payment_rows = []
                         for p in sorted(vendor_payments, key=lambda x: (x.year, x.month)):
@@ -944,77 +858,12 @@ def create_app():
                                     </td>
                                 </tr>'''
                             )
-
-                            # 支払い編集モーダル
-                            payment_rows.append(f'''
-                            <div class="modal fade" id="editPaymentModal{p.id}" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">支払い編集</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <form action="/payment/{p.id}/edit" method="POST">
-                                                <div class="row mb-3">
-                                                    <div class="col">
-                                                        <label for="payment_year" class="form-label">年</label>
-                                                        <select class="form-select" id="payment_year" name="payment_year" required>
-                                                            {''.join([f'<option value="{year}" {"selected" if year == p.year else ""}>{year}年</option>' for year in range(2020, datetime.now().year + 2)])}
-                                                        </select>
-                                                    </div>
-                                                    <div class="col">
-                                                        <label for="payment_month" class="form-label">月</label>
-                                                        <select class="form-select" id="payment_month" name="payment_month" required>
-                                                            {''.join([f'<option value="{month}" {"selected" if month == p.month else ""}>{month}月</option>' for month in range(1, 13)])}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label for="payment_amount" class="form-label">支払い金額</label>
-                                                    <input type="number" class="form-control" id="payment_amount" name="payment_amount" value="{p.amount}" required>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label for="payment_note" class="form-label">備考</label>
-                                                    <textarea class="form-control" id="payment_note" name="payment_note" rows="3">{p.note or ""}</textarea>
-                                                </div>
-                                                <div class="text-end">
-                                                    <button type="submit" class="btn btn-primary">更新</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 支払い削除確認モーダル -->
-                            <div class="modal fade" id="deletePaymentModal{p.id}" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">支払い削除の確認</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <p>{p.year}年{p.month}月の支払い（{p.amount:,}円）を削除してもよろしいですか？</p>
-                                            <p class="text-danger">この操作は取り消せません。</p>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <form action="/payment/{p.id}/delete" method="POST">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                                                <button type="submit" class="btn btn-danger">削除</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            ''')
                         
                         # 業者カードを生成
                         vendor_card = f'''
                         <div class="card mb-3">
                             <div class="card-header">
-                                <span>{vendor_name}</span>
+                                <span class="fw-bold">{vendor_name}</span>
                             </div>
                             <div class="card-body p-0">
                                 <table class="table table-sm mb-0">
@@ -1022,7 +871,7 @@ def create_app():
                                     <tbody>
                                         {''.join(payment_rows)}
                                         <tr class="table-info">
-                                            <td class="text-end">支払合計</td>
+                                            <td class="text-end">出来高支払合計</td>
                                             <td>{sum(p.amount for p in vendor_payments):,}円</td>
                                             <td colspan="2"></td>
                                         </tr>
@@ -1030,18 +879,19 @@ def create_app():
                                 </table>
                             </div>
                         </div>'''
-                        non_contract_vendor_cards.append(vendor_card)
+                        progress_vendor_cards.append(vendor_card)
                     
-                    # 請負外支払い全体のHTML生成
-                    non_contract_payments_html = f'''
+                    # 出来高支払い全体のHTML生成
+                    progress_payments_html = f'''
                     <div class="col-md-6">
-                        <h6 class="mb-2">請負外支払</h6>
-                        {''.join(non_contract_vendor_cards)}
+                        <h6 class="mb-2">出来高支払</h6>
+                        {''.join(progress_vendor_cards)}
                         <div class="card mb-3">
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col">
-                                        <div>請負外支払合計: {non_contract_total:,}円</div>
+                                        <div>出来高支払合計: {progress_total:,}円</div>
+                                        <div>工種請負残額: {contract_remaining:,}円</div>
                                     </div>
                                 </div>
                             </div>
@@ -1052,6 +902,7 @@ def create_app():
                 payments_display = f'''
                 <div class="row">
                     {contract_payments_html}
+                    {progress_payments_html}
                     {non_contract_payments_html}
                 </div>
                 '''
@@ -1072,6 +923,7 @@ def create_app():
                                 <div class="row">
                                     <div class="col">
                                         <div>請負支払計: {contract_total:,}円</div>
+                                        <div>出来高支払計: {progress_total:,}円</div>
                                         <div>請負外支払計: {non_contract_total:,}円</div>
                                         <div>支払残: {contract_remaining:,}円</div>
                                     </div>
