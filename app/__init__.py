@@ -857,7 +857,6 @@ def create_app():
                                 <div class="row">
                                     <div class="col">
                                         <div>請負支払合計: {contract_total:,}円</div>
-                                        <div>請負残額: {contract_remaining:,}円</div>
                                     </div>
                                 </div>
                             </div>
@@ -880,8 +879,83 @@ def create_app():
                         payment_rows = []
                         for p in sorted(vendor_payments, key=lambda x: (x.year, x.month)):
                             payment_rows.append(
-                                f'<tr><td>{p.year}年{p.month}月</td><td>{p.amount:,}円</td><td>{p.note or ""}</td></tr>'
+                                f'''<tr>
+                                    <td>{p.year}年{p.month}月</td>
+                                    <td>{p.amount:,}円</td>
+                                    <td>{p.note or ""}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editPaymentModal{p.id}">編集</button>
+                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deletePaymentModal{p.id}">削除</button>
+                                        </div>
+                                    </td>
+                                </tr>'''
                             )
+
+                            # 支払い編集モーダル
+                            payment_rows.append(f'''
+                            <div class="modal fade" id="editPaymentModal{p.id}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">支払い編集</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <form action="/payment/{p.id}/edit" method="POST">
+                                                <div class="row mb-3">
+                                                    <div class="col">
+                                                        <label for="payment_year" class="form-label">年</label>
+                                                        <select class="form-select" id="payment_year" name="payment_year" required>
+                                                            {''.join([f'<option value="{year}" {"selected" if year == p.year else ""}>{year}年</option>' for year in range(2020, datetime.now().year + 2)])}
+                                                        </select>
+                                                    </div>
+                                                    <div class="col">
+                                                        <label for="payment_month" class="form-label">月</label>
+                                                        <select class="form-select" id="payment_month" name="payment_month" required>
+                                                            {''.join([f'<option value="{month}" {"selected" if month == p.month else ""}>{month}月</option>' for month in range(1, 13)])}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="payment_amount" class="form-label">支払い金額</label>
+                                                    <input type="number" class="form-control" id="payment_amount" name="payment_amount" value="{p.amount}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="payment_note" class="form-label">備考</label>
+                                                    <textarea class="form-control" id="payment_note" name="payment_note" rows="3">{p.note or ""}</textarea>
+                                                </div>
+                                                <div class="text-end">
+                                                    <button type="submit" class="btn btn-primary">更新</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 支払い削除確認モーダル -->
+                            <div class="modal fade" id="deletePaymentModal{p.id}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">支払い削除の確認</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>{p.year}年{p.month}月の支払い（{p.amount:,}円）を削除してもよろしいですか？</p>
+                                            <p class="text-danger">この操作は取り消せません。</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <form action="/payment/{p.id}/delete" method="POST">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                                                <button type="submit" class="btn btn-danger">削除</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            ''')
                         
                         # 業者カードを生成
                         vendor_card = f'''
@@ -891,13 +965,13 @@ def create_app():
                             </div>
                             <div class="card-body p-0">
                                 <table class="table table-sm mb-0">
-                                    <thead><tr><th>年月</th><th>金額</th><th>備考</th></tr></thead>
+                                    <thead><tr><th>年月</th><th>金額</th><th>備考</th><th>操作</th></tr></thead>
                                     <tbody>
                                         {''.join(payment_rows)}
                                         <tr class="table-info">
                                             <td class="text-end">支払合計</td>
                                             <td>{sum(p.amount for p in vendor_payments):,}円</td>
-                                            <td></td>
+                                            <td colspan="2"></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -932,7 +1006,7 @@ def create_app():
                 budgets_html += f'''
                 <tr>
                     <td colspan="5">
-                        <div class="card mb-4">
+                        <div class="card mb-4" id="budget_{budget.id}">
                             <div class="card-header bg-primary text-white">
                                 <h4 class="mb-0">{budget.code} - {budget.name}</h4>
                             </div>
@@ -1304,7 +1378,7 @@ def create_app():
             db.session.commit()
             app.logger.info(f'工種を更新しました: {code}')
             
-            return redirect(f'/property/{budget.property_id}')
+            return redirect(f'/property/{budget.property_id}#budget_{budget_id}')
         except Exception as e:
             db.session.rollback()
             app.logger.error(f'工種更新エラー: {str(e)}')
@@ -1365,7 +1439,7 @@ def create_app():
             db.session.commit()
             app.logger.info(f'支払いを登録しました: {payment_year}年{payment_month}月 - {payment_amount}円')
             
-            return redirect(f'/property/{budget.property_id}')
+            return redirect(f'/property/{budget.property_id}#budget_{budget_id}')
         except Exception as e:
             db.session.rollback()
             app.logger.error(f'支払い登録エラー: {str(e)}')
@@ -1398,7 +1472,7 @@ def create_app():
             db.session.commit()
             app.logger.info(f'支払いを更新しました: {payment_year}年{payment_month}月 - {payment_amount}円')
             
-            return redirect(f'/property/{budget.property_id}')
+            return redirect(f'/property/{budget.property_id}#budget_{budget.id}')
         except Exception as e:
             db.session.rollback()
             app.logger.error(f'支払い更新エラー: {str(e)}')
@@ -1420,7 +1494,7 @@ def create_app():
             db.session.commit()
             app.logger.info(f'支払いを削除しました: {payment.year}年{payment.month}月 - {payment.amount}円')
             
-            return redirect(f'/property/{property_id}')
+            return redirect(f'/property/{property_id}#budget_{budget.id}')
         except Exception as e:
             db.session.rollback()
             app.logger.error(f'支払い削除エラー: {str(e)}')
