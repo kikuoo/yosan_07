@@ -711,7 +711,7 @@ def create_app():
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <div>
                                     <span class="fw-bold">{vendor_name}</span>
-                                    <span class="ms-3 text-muted">請負金額: {budget.amount:,}円</span>
+                                    <span class="ms-3 text-muted">請負額: {vendor_total:,}円</span>
                                 </div>
                                 <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#progressPaymentModal{budget.id}_{vendor_name.replace(" ", "_")}">出来高支払い</button>
                             </div>
