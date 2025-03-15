@@ -1092,7 +1092,6 @@ def create_app():
                 vendor_name=vendor_name,
                 amount=int(payment_amount),
                 is_contract=is_contract,
-                payment_type='請負' if is_contract else '請負外',
                 note=payment_note,
                 budget_id=budget_id
             )
