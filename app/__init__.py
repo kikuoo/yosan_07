@@ -21,10 +21,10 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///yosan.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # セッション設定
+    # セッション設定を一時的に無効化
     app.config['SESSION_COOKIE_SECURE'] = False
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_HTTPONLY'] = False
+    app.config['SESSION_COOKIE_SAMESITE'] = None
     
     # データベースの初期化
     db.init_app(app)
@@ -38,11 +38,7 @@ def create_app():
     from app.models import User
     @login_manager.user_loader
     def load_user(user_id):
-        try:
-            return User.query.get(int(user_id))
-        except Exception as e:
-            app.logger.error(f'ユーザーロード中にエラーが発生しました: {str(e)}')
-            return None
+        return User.query.get(int(user_id))
     
     with app.app_context():
         # データベースのテーブルを作成
@@ -64,63 +60,15 @@ def create_app():
     except Exception as e:
         app.logger.error(f'ブループリントの登録中にエラーが発生しました: {str(e)}')
     
-    # エラーハンドラの登録
+    # シンプルなエラーハンドラ
     @app.errorhandler(404)
     def not_found_error(error):
-        app.logger.info(f'404エラー: {request.url}')
-        if request.method == 'HEAD':
-            return '', 200
-        return '''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>ページが見つかりません</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        </head>
-        <body>
-            <div class="container mt-5">
-                <div class="row justify-content-center">
-                    <div class="col-md-6 text-center">
-                        <h1>ページが見つかりません</h1>
-                        <div class="mt-4">
-                            <a href="/" class="btn btn-primary">トップページに戻る</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        ''', 404
+        return redirect('/')
     
     @app.errorhandler(500)
     def internal_error(error):
-        app.logger.error(f'500エラー: {str(error)}')
         db.session.rollback()
-        return '''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>エラーが発生しました</title>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        </head>
-        <body>
-            <div class="container mt-5">
-                <div class="row justify-content-center">
-                    <div class="col-md-6 text-center">
-                        <h1>エラーが発生しました</h1>
-                        <div class="mt-4">
-                            <a href="/" class="btn btn-primary">トップページに戻る</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        ''', 500
+        return redirect('/')
     
     return app
 
